@@ -1,0 +1,11 @@
+node_modules/
+.env
+data/
+.deploy-host
+.claude/
+.DS_Store
+*.log
+arte/
+imagens/
+tiktok/
+pavio-curto.html

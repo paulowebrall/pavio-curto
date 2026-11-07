@@ -1,0 +1,11 @@
+Músicas próprias (opcional)
+
+Coloque aqui arquivos MP3 com estes nomes para substituir a trilha gerada pelo jogo:
+  sala.mp3     - sala de espera e tela inicial
+  batalha.mp3  - durante a partida
+  final.mp3    - quando o tempo acaba e a arena começa a fechar
+
+Use só músicas que vocês têm direito de usar: compostas por vocês ou com
+licença livre para jogos (ex.: Creative Commons que permita esse uso, ou
+bibliotecas "royalty-free"). Música de banda famosa, mesmo instrumental
+ou tocada por outra pessoa (cover), precisa de licença do autor.

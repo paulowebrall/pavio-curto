@@ -1,0 +1,16 @@
+{
+  "name": "pavio-curto",
+  "version": "1.0.0",
+  "description": "Pavio Curto: batalha de bombas multiplayer com salas (Socket.io)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "express": "^4.21.2",
+    "google-auth-library": "^9.15.1",
+    "socket.io": "^4.8.1"
+  }
+}
