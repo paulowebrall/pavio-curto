@@ -140,15 +140,54 @@ kbd{font:500 12px var(--body);background:var(--panel);border:1px solid var(--lin
 @media (max-width:900px){.playwrap.isfs .fslbl{display:none}}
 .playwrap.isfs .cab{width:min(100%,calc((100vh - 70px)*15/13));width:min(100%,calc((100dvh - 70px)*15/13))}
 @media (pointer:coarse){.playwrap.isfs .cab{width:min(100%,calc((100dvh - 250px)*15/13))}}
-@media (pointer:coarse) and (orientation:landscape){   /* celular deitado: analógico à esquerda, botões à direita */
-  .playwrap.isfs .cab{width:100%;height:100%;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:6px 10px}
-  .playwrap.isfs .top{grid-column:1/-1}
-  .playwrap.isfs .stage{grid-column:2;grid-row:2;height:100%;width:auto;max-width:calc(100vw - 300px);justify-self:center}
-  .playwrap.isfs .pad{display:contents}
-  .playwrap.isfs .joy{grid-column:1;grid-row:2;height:100%;max-width:none}
-  .playwrap.isfs .acts{grid-column:3;grid-row:2;align-self:end;justify-self:center;flex-direction:column-reverse;align-items:center;padding-bottom:12px}
+@media (pointer:coarse) and (orientation:landscape){   /* celular deitado: jogo na tela toda, controles transparentes por cima */
+  .playwrap.isfs{padding:0;overflow:hidden;background:radial-gradient(ellipse at center,#221c44 0%,#0b0918 75%)}
+  .playwrap.isfs .cab{position:relative;width:100%;height:100%;display:block}
+  .playwrap.isfs .stage{position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);height:100%;width:auto;max-width:none;border-radius:0;
+    box-shadow:0 0 60px 20px rgba(0,0,0,.6)}
   .playwrap.isfs .emotes{display:none}
+  /* barra de cima vira sobreposição */
+  .playwrap.isfs .top{position:absolute;inset:0 0 auto 0;z-index:3;align-items:flex-start;pointer-events:none;
+    padding:8px max(10px,env(safe-area-inset-right)) 0 max(10px,env(safe-area-inset-left))}
+  .playwrap.isfs .top button,.playwrap.isfs .top .chip{pointer-events:auto}
+  .playwrap.isfs #hud{flex-direction:column;align-items:flex-start;gap:4px;overflow:visible;max-width:calc(50vw - 25vh*15/13 - 14px)}
+  .playwrap.isfs .chip{background:rgba(10,8,25,.55);border-color:rgba(255,255,255,.14);font-size:12px;padding:2px 8px 2px 3px;max-width:100%;
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .playwrap.isfs .chip b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .playwrap.isfs .top>.hud:last-child{flex-direction:column;align-items:flex-end;gap:6px}
+  .playwrap.isfs .timer{position:absolute;left:50%;top:6px;transform:translateX(-50%);background:rgba(10,8,25,.6);border-color:rgba(255,255,255,.18);font-size:18px;pointer-events:none}
+  .playwrap.isfs .timer.sd{border-color:var(--hot)}
+  .playwrap.isfs .icon-btn{width:40px;height:40px;padding:0;border-radius:50%;font-size:0;background:rgba(10,8,25,.55);border-color:rgba(255,255,255,.18);
+    display:grid;place-items:center;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .playwrap.isfs .icon-btn::before{font-size:17px;line-height:1}
+  .playwrap.isfs #muteBtn::before{content:'🔊'} .playwrap.isfs #muteBtn.off::before{content:'🔇'}
+  .playwrap.isfs #musicBtn::before{content:'🎵'} .playwrap.isfs #musicBtn.off{opacity:.45}
+  .playwrap.isfs #fsBtn::before{content:'⤡'} .playwrap.isfs #playLeave::before{content:'🚪'}
+  .playwrap.isfs #repPause,.playwrap.isfs #repSpeed{width:auto;border-radius:8px;padding:0 10px;font-size:13px}
+  .playwrap.isfs #repPause::before,.playwrap.isfs #repSpeed::before{content:none}
+  /* controles por cima do jogo */
+  .playwrap.isfs .pad{display:block;position:absolute;inset:0;z-index:2;pointer-events:none}
+  .playwrap.isfs .joy{position:absolute;left:0;bottom:0;top:28%;width:44%;max-width:none;height:auto;pointer-events:auto}
+  .playwrap.isfs .joy .jbase{width:132px;height:132px;margin:-66px 0 0 -66px;background:radial-gradient(circle,rgba(255,255,255,.05) 45%,rgba(255,255,255,.16));border-color:rgba(255,255,255,.28)}
+  .playwrap.isfs .joy .jknob{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .playwrap.isfs .joy:not(.on) .jbase{opacity:.75}
+  .playwrap.isfs .acts{position:absolute;right:max(18px,env(safe-area-inset-right));bottom:16px;display:flex;align-items:flex-end;gap:14px;pointer-events:auto}
+  .playwrap.isfs .bombbtn,.playwrap.isfs .petbtn{display:grid;place-items:center;align-content:center;gap:2px;color:#fff;font-size:10px;letter-spacing:.06em;
+    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .playwrap.isfs .bombbtn{width:100px;height:100px;background:rgba(255,90,60,.5);border:3px solid rgba(255,255,255,.4)}
+  .playwrap.isfs .bombbtn::before{content:'💣';font-size:34px;line-height:1}
+  .playwrap.isfs .petbtn{width:66px;height:66px;margin-bottom:70px;background:rgba(10,8,25,.5);border:3px solid rgba(255,178,62,.7);color:var(--fuse)}
+  .playwrap.isfs .petbtn::before{content:'🐾';font-size:22px;line-height:1}
+  .playwrap.isfs .bombbtn:active,.playwrap.isfs .petbtn:active{transform:scale(.93)}
 }
+.rotate-hint{display:none}
+@media (pointer:coarse) and (orientation:portrait){
+  .playwrap.isfs .top{flex-wrap:wrap;justify-content:center}
+  .playwrap.isfs #hud{flex-basis:100%;justify-content:safe center}
+  .playwrap.isfs .rotate-hint{display:block;position:fixed;left:50%;bottom:max(10px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;
+    background:rgba(10,8,25,.8);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;color:var(--ink);white-space:nowrap;pointer-events:none}
+}
+
 @media (max-width:900px){.chatslot{flex-basis:100%}}
 .chat{display:flex;flex-direction:column;gap:8px;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:12px;height:min(520px,60vh);box-sizing:border-box}
 .chatslot:empty{display:none}
@@ -515,6 +554,7 @@ select{font:500 15px var(--body);background:var(--bg);color:var(--ink);border:2p
   </div>
 </div>
 <aside class="chatslot" id="chatSlotPlay"></aside>
+<div class="rotate-hint">📱↻ Vire o celular para jogar deitado</div>
 </section>
 
 <!-- Chat da sala (é movido para o lado da sala de espera ou do jogo) -->
@@ -1130,7 +1170,7 @@ addEventListener('blur',()=>{ held.length=0; touchDir=null; sendDir(); });
 // Só 4 direções (grade). Zona morta pequena e "histerese" para não ficar trocando na diagonal.
 (()=>{ const zone=$('joy'), base=$('jbase'), knob=$('jknob'), arr=base.querySelectorAll('.jarr i');
   const R=46, DEAD=12; let pid=null, cx=0, cy=0;
-  function rest(){ const w=zone.clientWidth||200, h=zone.clientHeight||170; cx=Math.min(w/2,90); cy=h/2; place(0,0); }
+  function rest(){ const w=zone.clientWidth||200, h=zone.clientHeight||170; cx=Math.min(w/2,100); cy=h>230?h-Math.max(90,h*.32):h/2; place(0,0); }
   function place(dx,dy){ base.style.left=cx+'px'; base.style.top=cy+'px'; knob.style.transform=`translate(${dx}px,${dy}px)`; }
   function setDir(d){ if(d!==touchDir){ touchDir=d; arr.forEach(a=>a.classList.toggle('act',a.classList.contains(d))); if(d&&navigator.vibrate)try{navigator.vibrate(6);}catch(_){} sendDir(); } }
   function move(e){ const r=zone.getBoundingClientRect(); let x=e.clientX-r.left, y=e.clientY-r.top, dx=x-cx, dy=y-cy, dist=Math.hypot(dx,dy);
@@ -1250,9 +1290,10 @@ function fsOn(){ return !!fsNative()||$('play').classList.contains('fs'); }
 function fsSync(){ const on=fsOn(); $('play').classList.toggle('isfs',on); $('fsBtn').innerHTML=on?'✕<span class="fslbl"> Sair da tela cheia</span>':'⛶ Tela cheia'; $('fsBtn').setAttribute('aria-label',on?'Sair da tela cheia':'Tela cheia'); }
 function setFs(on){
   if(on){ const req=$('play').requestFullscreen||$('play').webkitRequestFullscreen;
-    if(req){ try{ Promise.resolve(req.call($('play'),{navigationUI:'hide'})).catch(()=>{ $('play').classList.add('fs'); fsSync(); }); }catch(e){ $('play').classList.add('fs'); } }
+    if(req){ try{ Promise.resolve(req.call($('play'),{navigationUI:'hide'})).then(()=>{   // no celular (Android) trava deitado, como jogo de celular
+        if(matchMedia('(pointer:coarse)').matches&&screen.orientation&&screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{}); }).catch(()=>{ $('play').classList.add('fs'); fsSync(); }); }catch(e){ $('play').classList.add('fs'); } }
     else $('play').classList.add('fs');   // iPhone: sem tela cheia de verdade, ocupa a janela toda
-  } else { $('play').classList.remove('fs'); if(fsNative()){ const ex=document.exitFullscreen||document.webkitExitFullscreen; try{ Promise.resolve(ex.call(document)).catch(()=>{}); }catch(e){} } }
+  } else { $('play').classList.remove('fs'); try{ screen.orientation&&screen.orientation.unlock&&screen.orientation.unlock(); }catch(e){} if(fsNative()){ const ex=document.exitFullscreen||document.webkitExitFullscreen; try{ Promise.resolve(ex.call(document)).catch(()=>{}); }catch(e){} } }
   fsSync();
 }
 for(const ev of ['fullscreenchange','webkitfullscreenchange']) document.addEventListener(ev,fsSync);
@@ -1262,7 +1303,7 @@ addEventListener('keydown',e=>{
   if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;
   e.preventDefault(); setFs(!fsOn());
 });
-$('muteBtn').onclick=e=>{ muted=!muted; e.currentTarget.textContent='Som: '+(muted?'off':'on'); audio(); e.currentTarget.blur(); };
+$('muteBtn').onclick=e=>{ muted=!muted; e.currentTarget.textContent='Som: '+(muted?'off':'on'); e.currentTarget.classList.toggle('off',muted); audio(); e.currentTarget.blur(); };
 
 /* ---------- trilha: heavy metal instrumental ORIGINAL, tocada pelo próprio navegador ----------
    Guitarra distorcida (power chords e palhetada abafada), baixo e bateria com bumbo duplo.
@@ -1369,10 +1410,10 @@ function musicSting(){   // acorde de vitória
 function setMusic(on){ MUS.on=on; try{localStorage.setItem('pc-music',on?'1':'0');}catch(e){}
   audio(); if(AC){ musChains(); MUS.bus.gain.setTargetAtTime(on?MUS.vol:0,AC.currentTime,.1); }
   if(!on){ MUS.cur=null; if(MUS.el){MUS.el.pause();MUS.el=null;} }
-  for(const id of ['musicBtn','musicBtn2']) $(id).textContent='Música: '+(on?'on':'off'); }
+  for(const id of ['musicBtn','musicBtn2']){ $(id).textContent='Música: '+(on?'on':'off'); $(id).classList.toggle('off',!on); } }
 $('musicBtn').onclick=e=>{ setMusic(!MUS.on); e.currentTarget.blur(); };
 $('musicBtn2').onclick=e=>{ setMusic(!MUS.on); e.currentTarget.blur(); };
-for(const id of ['musicBtn','musicBtn2']) $(id).textContent='Música: '+(MUS.on?'on':'off');
+for(const id of ['musicBtn','musicBtn2']){ $(id).textContent='Música: '+(MUS.on?'on':'off'); $(id).classList.toggle('off',!MUS.on); }
 // procura músicas próprias em /musica (sala.mp3, batalha.mp3, final.mp3)
 for(const n of Object.keys(SONGS)) fetch(BASE+'musica/'+n+'.mp3',{method:'HEAD'}).then(r=>{ if(r.ok){ const a=new Audio(BASE+'musica/'+n+'.mp3'); a.loop=true; a.preload='auto'; MUS.files[n]=a; } }).catch(()=>{});
 window.__pcMusic=()=>({on:MUS.on,tocando:MUS.cur,nome:MUS.cur&&SONGS[MUS.cur].name,arquivo:!!MUS.el,audio:AC&&AC.state,compasso:MUS.bar});   // para conferir pelo console
