@@ -40,6 +40,11 @@ input[type=text]:focus{outline:none;border-color:var(--fuse)}
 button:focus-visible,input:focus-visible{outline:3px solid var(--fuse);outline-offset:2px}
 .or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px}
 .roomsbox{display:grid;gap:8px}
+.appbanner{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,rgba(255,178,62,.16),rgba(255,178,62,.04));border:2px solid var(--fuse);border-radius:12px;padding:8px 10px}
+.appbanner[hidden]{display:none}
+.appbanner a{flex:1;display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-size:22px;min-width:0}
+.appbanner a span{display:grid;font-size:14px}
+.appbanner a .sub{font-size:12px}
 .roomsbox .lbl span{color:var(--muted);font-weight:400}
 .roomlist{display:grid;gap:8px;max-height:340px;overflow-y:auto}
 .rcard{display:flex;align-items:center;gap:10px;background:var(--bg);border:2px solid var(--line);border-radius:12px;padding:8px 10px}
@@ -376,6 +381,10 @@ select{font:500 15px var(--body);background:var(--bg);color:var(--ink);border:2p
     <div class="mebar">
       <div class="meinfo"><b id="meNick"></b><span class="badge" id="meBadge" hidden>★ Apoiador</span><span class="sub" id="mePoints"></span></div>
       <span class="mebtns"><button class="ghost sm" id="musicBtn2" type="button">Música: on</button><button class="ghost sm" id="logoutBtn" type="button">Sair</button></span>
+    </div>
+    <div class="appbanner" id="appBanner" hidden>
+      <a href="app/pavio-curto.apk" download="pavio-curto.apk">📱 <span><b>Baixar o app para Android</b><span class="sub">Ícone na tela inicial e jogo em tela cheia</span></span></a>
+      <button type="button" class="ghost sm" id="appBannerX" aria-label="Fechar aviso do app">✕</button>
     </div>
     <div class="tabs" role="tablist">
       <button type="button" role="tab" data-tab="jogar" aria-selected="true">Jogar</button>
@@ -1336,6 +1345,14 @@ addEventListener('keydown',e=>{
   if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;
   e.preventDefault(); setFs(!fsOn());
 });
+/* ---------- aviso para baixar o app de Android (só no Android e fora do app) ---------- */
+(()=>{ let inApp=false;
+  try{ if(new URLSearchParams(location.search).has('app')||document.referrer.startsWith('android-app://'))sessionStorage.setItem('pc-app','1'); inApp=sessionStorage.getItem('pc-app')==='1'; }catch(e){}
+  if(matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches)inApp=true;
+  let closed=false; try{ closed=localStorage.getItem('pc-appbanner')==='0'; }catch(e){}
+  $('appBanner').hidden=!(/Android/i.test(navigator.userAgent)&&!inApp&&!closed);
+  $('appBannerX').onclick=()=>{ $('appBanner').hidden=true; try{ localStorage.setItem('pc-appbanner','0'); }catch(e){} };
+})();
 $('muteBtn').onclick=e=>{ muted=!muted; e.currentTarget.textContent='Som: '+(muted?'off':'on'); e.currentTarget.classList.toggle('off',muted); audio(); e.currentTarget.blur(); };
 
 /* ---------- trilha: heavy metal instrumental ORIGINAL, tocada pelo próprio navegador ----------
