@@ -30,6 +30,7 @@ const TICK = 1000 / 60, STEP = 1 / 60, SEND_EVERY = 2, MAX_PLAYERS = 4;
 const POINTS_BY_DIFF = { facil: 1, normal: 2, dificil: 3 };          // partida normal: pela dificuldade dos bots
 const POINTS_BY_TOURNEY = { 2: 3, 3: 5, 5: 10 };                    // torneio: pelo número de vitórias
 const EMOTES = ['zangado', 'sorrindo', 'dedo', 'dormindo'];
+const NCHARS = 9;                                                   // personagens (igual ao game.js)
 const MIN_HUMANS_FOR_POINTS = 1;                                    // vale ponto também contra bots; só ganha quem vence e está na sala até o fim
 
 // Publicar numa subpasta (ex.: rotadevenda.com.br/pavio-curto): BASE_PATH=/pavio-curto
@@ -554,7 +555,7 @@ function leaveRoom(socket) {
 function joinMember(socket, r) {
   const u = db.users[socket.data.uid];
   const taken = new Set(r.members.map(m => m.char));
-  r.members.push({ sid: socket.id, uid: u.uid, name: u.nick, char: [0, 1, 2, 3, 4, 5, 6, 7].find(c => !taken.has(c)), supporter: !!u.supporter, gear: gearOn(u) });
+  r.members.push({ sid: socket.id, uid: u.uid, name: u.nick, char: [...Array(NCHARS).keys()].find(c => !taken.has(c)), supporter: !!u.supporter, gear: gearOn(u) });
   socket.join(r.code); socket.data.room = r.code; socket.data.spectator = false;
   socket.emit('chatHistory', r.chat); sysMsg(r, u.nick + ' entrou para jogar');
 }
@@ -674,7 +675,7 @@ io.on('connection', socket => {
   socket.on('pick', ({ char } = {}) => {
     const r = rooms.get(socket.data.room); if (!r || r.game) return;
     const me = r.members.find(m => m.sid === socket.id);
-    if (!me || !Number.isInteger(char) || char < 0 || char > 7) return;
+    if (!me || !Number.isInteger(char) || char < 0 || char >= NCHARS) return;
     if (r.members.some(m => m !== me && m.char === char)) return;
     me.char = char; sendLobby(r);
   });

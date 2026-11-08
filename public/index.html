@@ -115,7 +115,7 @@ kbd{font:500 12px var(--body);background:var(--panel);border:1px solid var(--lin
 .petbtn{width:68px;height:68px;border-radius:50%;font-family:var(--display);font-size:13px;background:var(--panel);border:2px solid var(--fuse);color:var(--fuse);touch-action:none}
 .pets{display:grid;gap:4px;font-size:13px;color:var(--muted)}
 .pets b{color:var(--ink);font-weight:500}
-.charpick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.charpick{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
 .charpick button{display:grid;justify-items:center;gap:2px;background:var(--bg);border:2px solid var(--line);border-radius:12px;padding:6px 4px 8px;color:var(--ink);cursor:pointer;font:500 13px var(--body);min-width:0}
 .charpick button[aria-pressed="true"]{border-color:var(--fuse);box-shadow:0 0 0 2px var(--fuse) inset}
 .charpick button:disabled{opacity:.4;cursor:not-allowed}
@@ -539,12 +539,13 @@ const CHARS=[
   {color:'#d83a5a',belly:'#ffd0da',feet:'#8f1f36',light:'#ffb3c2'},
   {color:'#2cc4b4',belly:'#cff7f1',feet:'#17857a',light:'#bff3ec'},
   {color:'#d6448f',belly:'#ffd3ea',feet:'#8f2460',light:'#ffbfdf'},
-  {color:'#8a8fa8',belly:'#e3e5ee',feet:'#55596e',light:'#d3d6e4'}];
+  {color:'#8a8fa8',belly:'#e3e5ee',feet:'#55596e',light:'#d3d6e4'},
+  {color:'#6f74e8',belly:'#dcdcff',feet:'#3d419a',light:'#c9cbff'}];
 const PU={bomb:'#4b6bff',fire:'#ff5a3c',speed:'#2fd28c',kick:'#c86bff',glove:'#ff9f1c',cat:'#ff8fc7',roo:'#e0a255',tank:'#7b8f4a',lion:'#e8a93a',dragon:'#3fb06a',pet:'#ffb23e'};
 const PET_NAME={cat:'gato',roo:'canguru',tank:'tanque',lion:'leão',dragon:'dragão'};
 const PU_LABEL={bomb:'1 BOMBA',fire:'ALCANCE',speed:'VELOCIDADE',kick:'O CHUTE',glove:'A LUVINHA'};
 let G_lastScatter=0;   // evita vários sons de item caindo ao mesmo tempo
-const CHAR_NAMES=['Brasa','Gelo','Broto','Faísca','Kaze','Estrela','Canela','Trovão'];
+const CHAR_NAMES=['Brasa','Gelo','Broto','Faísca','Kaze','Estrela','Canela','Trovão','Marconis'];
 const $=id=>document.getElementById(id);
 /* ---------- conta (login Google, nick) ---------- */
 // pasta onde o jogo está publicado: "/" no localhost ou "/pavio-curto/" no site
@@ -2263,7 +2264,9 @@ const LOOK=[
   // Canela: pele morena, cabelo castanho longo e ondulado com flor, blusa rosa
   {skin:'#9a5f3b',skinS:'#744227',hair:'#3a2016',out:'#d6448f',outS:'#9a2866',pants:'#41305a',boots:'#2a1d18'},
   // Trovão: careca e grandão, barba cheia, regata cinza com raio
-  {skin:'#d39a72',skinS:'#ad7550',hair:'#3b2a20',out:'#7c8399',outS:'#4f5568',pants:'#2f3442',boots:'#2a2420'}];
+  {skin:'#d39a72',skinS:'#ad7550',hair:'#3b2a20',out:'#7c8399',outS:'#4f5568',pants:'#2f3442',boots:'#2a2420'},
+  // Marconis: pele parda, black power grande com a raiz escura e o topo loiro, camisa social azul-marinho, calça cáqui e tênis branco
+  {skin:'#a86f48',skinS:'#83512f',hair:'#3a2418',out:'#3f5590',outS:'#27365e',pants:'#b39a6c',boots:'#f4f4f4'}];
 function vgrad(y0,y1,a,b){ const g=ctx.createLinearGradient(0,y0,0,y1); g.addColorStop(0,a); g.addColorStop(1,b); return g; }
 function blob(x,y,rx,ry,fill,stroke){ ctx.fillStyle=fill; ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,7); ctx.fill(); if(stroke){ctx.strokeStyle=OUTLINE;ctx.lineWidth=1.6;ctx.stroke();} }
 function drawHuman(id,fx,fy,bob,step,feet,moving,gear){
@@ -2298,6 +2301,10 @@ function drawHuman(id,fx,fy,bob,step,feet,moving,gear){
   if(id===6){ ctx.fillStyle='#ffe0ef'; for(let k=-tw/2+2;k<tw/2;k+=3.5){ ctx.beginPath(); ctx.arc(k,-6.5+by,1.6,0,Math.PI); ctx.fill(); } ctx.fillStyle='rgba(255,255,255,.5)'; for(const [x,y] of [[-4,0],[3,2],[-1,4],[5,-2]]){ ctx.beginPath(); ctx.arc(x,y+by,1,0,7); ctx.fill(); } }   // babado e bolinhas
   if(id===7){ ctx.fillStyle=L.skin; if(!back){ ctx.beginPath(); ctx.moveTo(-5,-7+by); ctx.quadraticCurveTo(0,-1+by,5,-7+by); ctx.fill(); }
     if(!back&&!side){ ctx.fillStyle='#ffd23e'; ctx.strokeStyle='#8a6a10'; ctx.lineWidth=.8; ctx.beginPath(); ctx.moveTo(1,-3+by); ctx.lineTo(-2.5,1.5+by); ctx.lineTo(0,1.5+by); ctx.lineTo(-1.5,5.5+by); ctx.lineTo(2.8,0+by); ctx.lineTo(.4,0+by); ctx.closePath(); ctx.fill(); ctx.stroke(); } }   // decote da regata e raio
+  if(id===8){ if(!back&&!side){ ctx.fillStyle='#27365e'; for(const sx of [-1,1]){ ctx.beginPath(); ctx.moveTo(0,-6.5+by); ctx.lineTo(sx*5,-7+by); ctx.lineTo(sx*3,-3+by); ctx.closePath(); ctx.fill(); }   // gola da camisa
+      ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,-4+by); ctx.lineTo(0,7+by); ctx.stroke();
+      ctx.fillStyle='#dfe6f5'; for(const y of [-2,1.5,5]){ ctx.beginPath(); ctx.arc(0,y+by,.75,0,7); ctx.fill(); } }   // botões
+    else if(side){ ctx.fillStyle='#27365e'; ctx.fillRect(-tw/2,-7+by,tw,2.2); } }
   ctx.restore();
   if(!side){ arm(-ax,lerp(.15+swing,Math.PI-.2),true,8+cheer*12); arm(ax,lerp(-.15-swing,-(Math.PI-.2)),true,8+cheer*12); } else arm(1,swing*1.4,true);
   // cachecol do Gelo
@@ -2322,6 +2329,13 @@ function drawHuman(id,fx,fy,bob,step,feet,moving,gear){
     for(let k=0;k<=6;k++){ const x=-12.5+(side?-2:0)+k*(side?3.8:4.2), y=hy+14+(k%2?2.5:0); ctx.lineTo(x,y); }
     ctx.lineTo(12.5+(side?-4:0),hy-2); ctx.closePath(); ctx.fill(); ctx.stroke();
     blob(side?-1.5:0,hy,12,11.2,L.hair,true); }
+  if(id===8){ // black power grande: cachos escuros embaixo e nas laterais, loiros em cima
+    const ox=side?-2:0, puffs=[[-13,1.5],[13,1.5],[-13,-5.5],[13,-5.5],[-9,-12],[9,-12],[-3.5,-15.5],[3.5,-15.5]];
+    ctx.lineWidth=1.5;
+    for(const [x,y] of puffs){ const c=y<-9?['#f6d684','#d39b3c']:y<-3?['#d8a650','#5a3824']:['#5c3a26','#2c1a10']; blob(x+ox,hy+y,6.6,6.2,vgrad(hy+y-6,hy+y+6,c[0],c[1]),true); }
+    blob(ox,hy-4,14,12.5,vgrad(hy-16,hy+6,'#efc463','#3a2418'),false);
+    ctx.fillStyle='rgba(255,240,190,.55)'; for(const [x,y] of [[-6,-15],[1,-17.5],[7,-14],[-10,-10]]){ ctx.beginPath(); ctx.arc(x+ox,hy+y,1.3,0,7); ctx.fill(); }   // brilho dos cachos loiros
+  }
   if(id===7&&back){ blob(0,hy+1,10.2,10,vgrad(hy-9,hy+10,L.skin,L.skinS),true); ctx.fillStyle='rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(-3,hy-5,4,2,-.4,0,7); ctx.fill(); }   // careca de costas
   // rosto
   if(!back){
@@ -2338,6 +2352,7 @@ function drawHuman(id,fx,fy,bob,step,feet,moving,gear){
     if(id===4){ ctx.beginPath(); ctx.moveTo(fxo-fr,hy-2); ctx.quadraticCurveTo(fxo-3,hy-11,fxo+fr,hy-4); ctx.lineTo(fxo+fr,hy-7); ctx.quadraticCurveTo(fxo,hy-13,fxo-fr,hy-5); ctx.fill(); }   // franja de lado
     if(id===5){ ctx.beginPath(); ctx.ellipse(fxo+2,hy-5.5,fr,3.6,-.15,Math.PI,0); ctx.fill(); }
     if(id===6){ for(const s of (side?[1]:[-1,1])){ ctx.beginPath(); ctx.ellipse(fxo+s*5,hy-5.5,5.5,3.4,s*.35,Math.PI,0); ctx.fill(); } }   // repartido no meio
+    if(id===8) for(const x of (side?[-3,1,5]:[-7,-3.5,0,3.5,7])) blob(x+fxo,hy-7.6,3.1,2.7,vgrad(hy-10.5,hy-5,'#f0c86c','#b98432'),false);   // cachinhos loiros na testa
     if(id===7){ ctx.fillStyle='rgba(255,255,255,.4)'; ctx.beginPath(); ctx.ellipse(fxo-3,hy-6,4.2,2,-.4,0,7); ctx.fill();   // careca brilhando
       ctx.fillStyle=L.hair; ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.3;   // barba cheia
       ctx.beginPath(); ctx.moveTo(fxo-fr+.5,hy+1.5); ctx.quadraticCurveTo(fxo-fr+1,hy+11,fxo+(side?3:0),hy+12.5); ctx.quadraticCurveTo(fxo+fr-1,hy+11,fxo+fr-.5,hy+1.5);
@@ -2352,6 +2367,7 @@ function drawHuman(id,fx,fy,bob,step,feet,moving,gear){
     if(id===3){ ctx.fillStyle='rgba(150,80,40,.5)'; for(const [x,y] of (side?[[5,3.5],[7,3]]:[[-6,2.6],[-5,4],[6,2.6],[5,4]])){ ctx.beginPath(); ctx.arc(x+fxo,hy+y,.6,0,7); ctx.fill(); } }   // sardas
     if(id===4){ ctx.strokeStyle='#2a2a34'; ctx.lineWidth=1.1; for(const x of (side?[fxo+4.5]:[-3.6,3.6])){ ctx.beginPath(); ctx.arc(x,hy+.5,3,0,7); ctx.stroke(); }
       if(!side){ ctx.beginPath(); ctx.moveTo(-.6,hy+.3); ctx.lineTo(.6,hy+.3); ctx.stroke(); } }   // óculos redondos
+    if(id===8){ ctx.fillStyle='#2c1a10'; if(side) blob(fxo+5.2,hy+8.4,1.5,1.1,'#2c1a10',false); else { blob(0,hy+8.6,2,1.2,'#2c1a10',false); ctx.globalAlpha=.5; ctx.fillRect(-2.6,hy+6.6,5.2,.8); ctx.globalAlpha=1; } }   // cavanhaque e bigodinho
     if(id===5) for(const x of (side?[fxo-5.5]:[-9.3,9.3])){ ctx.strokeStyle='#e8b830'; ctx.lineWidth=1.3; ctx.beginPath(); ctx.arc(x,hy+5,2,0,7); ctx.stroke(); }   // argolas
   }
   if(id===6){ // flor amarela no cabelo
@@ -2598,7 +2614,7 @@ async function exportSprites(){
   const K=6;   // cada casa de 48 px vira 288 px
   const make=(w,h,fn)=>{ const c=document.createElement('canvas'); c.width=w*T*K; c.height=h*T*K; const saved=ctx; ctx=c.getContext('2d'); ctx.scale(K,K); try{fn();}finally{ctx=saved;} return c; };
   const P=(id,fx,fy,mount)=>({id,rx:0,ry:0,x:0,y:0,fx,fy,moving:false,anim:0,alive:true,deathT:0,mount:mount||null,jz:0,inv:false,dash:false,human:false,pc:0});
-  const NAMES=CHAR_NAMES, FILE=['brasa','gelo','broto','faisca','kaze','estrela','canela','trovao'];
+  const NAMES=CHAR_NAMES, FILE=['brasa','gelo','broto','faisca','kaze','estrela','canela','trovao','marconis'];
   const DIRS4=[['frente',0,1],['costas',0,-1],['esquerda',-1,0],['direita',1,0]];
   const PETS=[['cat','gato','Gato'],['roo','canguru','Canguru'],['tank','tanque','Tanque'],['lion','leao','Leão'],['dragon','dragao','Dragão']];
   const files=[], sheets={pers:[],pets:[],itens:[],cen:[]};

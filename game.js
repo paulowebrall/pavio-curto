@@ -5,8 +5,8 @@ const idx = (x, y) => y * COLS + x;
 const inB = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
 const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const DIRS = { u: { x: 0, y: -1 }, d: { x: 0, y: 1 }, l: { x: -1, y: 0 }, r: { x: 1, y: 0 } };
-const BOT_NAMES = ['Brasa', 'Gelo', 'Broto', 'Faísca', 'Kaze', 'Estrela', 'Canela', 'Trovão'];
-const NCHARS = BOT_NAMES.length;   // 8 personagens
+const BOT_NAMES = ['Brasa', 'Gelo', 'Broto', 'Faísca', 'Kaze', 'Estrela', 'Canela', 'Trovão', 'Marconis'];
+const NCHARS = BOT_NAMES.length;   // 9 personagens
 const SPAWNS = [[1, 1], [13, 11], [13, 1], [1, 11]];
 const PU_TEXT = { bomb: '+1 BOMBA', fire: '+ ALCANCE', speed: '+ VELOCIDADE', kick: 'CHUTE!', glove: 'LUVINHA!', cat: 'GATO!', roo: 'CANGURU!', tank: 'TANQUE!', lion: 'LEÃO!', dragon: 'DRAGÃO!' };
 // Luvinha: arremessa a bomba 3 casas. Se cair em bloco/bomba, quica 1 casa por vez. Na parede de fora, sai do outro lado.
