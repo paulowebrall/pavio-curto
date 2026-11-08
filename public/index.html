@@ -128,6 +128,27 @@ kbd{font:500 12px var(--body);background:var(--panel);border:1px solid var(--lin
 .sidewrap>.card{flex:1 1 380px}
 .playwrap{display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:12px;width:100%}
 .chatslot{flex:0 1 300px;min-width:0;width:100%;max-width:460px}
+/* tela cheia: o jogo ocupa a tela toda (no iPhone, que não tem tela cheia de verdade, ocupa a janela do navegador) */
+.playwrap.isfs{position:fixed;inset:0;z-index:50;background:var(--bg);flex-wrap:nowrap;align-items:center;overflow:auto;
+  padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+.playwrap.isfs .chatslot,.playwrap.isfs .help,.playwrap.isfs .logo{display:none}
+.playwrap.isfs .top{flex-wrap:nowrap;gap:6px}
+.playwrap.isfs .hud{flex-wrap:nowrap;flex-shrink:0}
+.playwrap.isfs #hud{flex-shrink:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.playwrap.isfs #hud::-webkit-scrollbar{display:none}
+.playwrap.isfs .chip{flex-shrink:0}
+@media (max-width:900px){.playwrap.isfs .fslbl{display:none}}
+.playwrap.isfs .cab{width:min(100%,calc((100vh - 70px)*15/13));width:min(100%,calc((100dvh - 70px)*15/13))}
+@media (pointer:coarse){.playwrap.isfs .cab{width:min(100%,calc((100dvh - 250px)*15/13))}}
+@media (pointer:coarse) and (orientation:landscape){   /* celular deitado: analógico à esquerda, botões à direita */
+  .playwrap.isfs .cab{width:100%;height:100%;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:6px 10px}
+  .playwrap.isfs .top{grid-column:1/-1}
+  .playwrap.isfs .stage{grid-column:2;grid-row:2;height:100%;width:auto;max-width:calc(100vw - 300px);justify-self:center}
+  .playwrap.isfs .pad{display:contents}
+  .playwrap.isfs .joy{grid-column:1;grid-row:2;height:100%;max-width:none}
+  .playwrap.isfs .acts{grid-column:3;grid-row:2;align-self:end;justify-self:center;flex-direction:column-reverse;align-items:center;padding-bottom:12px}
+  .playwrap.isfs .emotes{display:none}
+}
 @media (max-width:900px){.chatslot{flex-basis:100%}}
 .chat{display:flex;flex-direction:column;gap:8px;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:12px;height:min(520px,60vh);box-sizing:border-box}
 .chatslot:empty{display:none}
@@ -466,6 +487,7 @@ select{font:500 15px var(--body);background:var(--bg);color:var(--ink);border:2p
       <div class="timer" id="timer">2:00</div>
       <button class="icon-btn" id="muteBtn" type="button">Som: on</button>
       <button class="icon-btn" id="musicBtn" type="button">Música: on</button>
+      <button class="icon-btn" id="fsBtn" type="button" title="Tela cheia (F)">⛶ Tela cheia</button>
       <button class="icon-btn" id="playLeave" type="button">Sair</button>
     </div>
   </div>
@@ -864,7 +886,8 @@ async function loadMyDonations(){
 }
 
 /* ---------- telas ---------- */
-function show(id){ for(const s of ['login','nickScreen','home','lobby','play']) $(s).hidden=s!==id;
+function show(id){ if(id!=='play'&&fsOn())setFs(false);   // saiu do jogo: sai da tela cheia
+  for(const s of ['login','nickScreen','home','lobby','play']) $(s).hidden=s!==id;
   if(id==='lobby')$('chatSlotLobby').append($('chat')); else if(id==='play')$('chatSlotPlay').append($('chat'));
   $('chat').hidden=REPLAY||!(id==='lobby'||id==='play');
   if(id!=='play'&&typeof NEW_BUILD!=='undefined'&&NEW_BUILD) setTimeout(reloadIfIdle,400); }
@@ -1221,6 +1244,24 @@ function sfx(k){ if(muted||!AC)return; try{
   else if(k==='stolen'){ blip(660,.25,'square',.06,220); }
   else if(k==='scatter'){ if(G_lastScatter+.08<performance.now()/1000){ G_lastScatter=performance.now()/1000; blip(900,.07,'triangle',.04,1300); } }
 }catch(e){} }
+/* ---------- tela cheia ---------- */
+function fsNative(){ return document.fullscreenElement||document.webkitFullscreenElement; }
+function fsOn(){ return !!fsNative()||$('play').classList.contains('fs'); }
+function fsSync(){ const on=fsOn(); $('play').classList.toggle('isfs',on); $('fsBtn').innerHTML=on?'✕<span class="fslbl"> Sair da tela cheia</span>':'⛶ Tela cheia'; $('fsBtn').setAttribute('aria-label',on?'Sair da tela cheia':'Tela cheia'); }
+function setFs(on){
+  if(on){ const req=$('play').requestFullscreen||$('play').webkitRequestFullscreen;
+    if(req){ try{ Promise.resolve(req.call($('play'),{navigationUI:'hide'})).catch(()=>{ $('play').classList.add('fs'); fsSync(); }); }catch(e){ $('play').classList.add('fs'); } }
+    else $('play').classList.add('fs');   // iPhone: sem tela cheia de verdade, ocupa a janela toda
+  } else { $('play').classList.remove('fs'); if(fsNative()){ const ex=document.exitFullscreen||document.webkitExitFullscreen; try{ Promise.resolve(ex.call(document)).catch(()=>{}); }catch(e){} } }
+  fsSync();
+}
+for(const ev of ['fullscreenchange','webkitfullscreenchange']) document.addEventListener(ev,fsSync);
+$('fsBtn').onclick=e=>{ setFs(!fsOn()); e.currentTarget.blur(); };
+addEventListener('keydown',e=>{
+  if(e.code!=='KeyF'||e.repeat||e.ctrlKey||e.metaKey||e.altKey||$('play').hidden)return;
+  if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;
+  e.preventDefault(); setFs(!fsOn());
+});
 $('muteBtn').onclick=e=>{ muted=!muted; e.currentTarget.textContent='Som: '+(muted?'off':'on'); audio(); e.currentTarget.blur(); };
 
 /* ---------- trilha: heavy metal instrumental ORIGINAL, tocada pelo próprio navegador ----------
