@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 HOST=${DEPLOY_HOST:-$(cat .deploy-host 2>/dev/null)}
 [ -n "$HOST" ] || { echo 'Crie o arquivo .deploy-host com usuario@servidor'; exit 1; }
 cd "$(dirname "$0")"
-COPYFILE_DISABLE=1 tar czf - --exclude=node_modules --exclude=data --exclude=.env --exclude=.claude \
+COPYFILE_DISABLE=1 tar czf - --exclude=node_modules --exclude=data --exclude=.env --exclude=.claude --exclude=android --exclude='*.apk' \
   --exclude=arte --exclude=imagens --exclude=tiktok --exclude=.deploy-host --exclude=pavio-curto.html --exclude='*.log' --exclude=.git . 2>/dev/null \
   | ssh $HOST 'tar xzf - -C /opt/pavio-curto 2>/dev/null; cd /opt/pavio-curto &&
     docker build -q -t pavio-curto . >/dev/null &&

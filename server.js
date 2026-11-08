@@ -48,6 +48,12 @@ if (BASE_PATH) {
 }
 // limite de 100 KB para tudo, menos a exportação de imagens (só existe com PAVIO_EXPORT=1)
 app.use((req, res, next) => req.path === '/__save' ? next() : express.json({ limit: '100kb' })(req, res, next));
+// App de Android (Trusted Web Activity): prova que o app br.com.opaviocurto.app é deste site, para ele abrir em tela cheia sem a barra do Chrome.
+// As impressões digitais (SHA-256) são públicas: a do APK de teste e, depois, a da Play Store (ANDROID_CERT_SHA256, separadas por vírgula).
+const ANDROID_CERTS = ['70:67:B1:22:0B:53:DD:33:16:BF:2A:7D:94:94:6C:8E:8A:0C:AF:3C:3C:64:DD:F9:FA:BF:0C:D9:A1:69:32:7E']
+  .concat((process.env.ANDROID_CERT_SHA256 || '').split(',').map(s => s.trim()).filter(Boolean));
+app.get('/.well-known/assetlinks.json', (req, res) => res.json([{ relation: ['delegate_permission/common.handle_all_urls'],
+  target: { namespace: 'android_app', package_name: 'br.com.opaviocurto.app', sha256_cert_fingerprints: ANDROID_CERTS } }]));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Só para gerar as imagens dos personagens: PAVIO_EXPORT=1 npm start e abrir /?sprites
