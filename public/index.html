@@ -157,6 +157,23 @@ textarea:focus{outline:none;border-color:var(--fuse)}
 .chip2 select{font-size:11px;padding:1px 2px;border-radius:6px;width:auto;border-width:1px}
 .mt .tbtns button{min-width:0;flex:0 1 auto}
 .pool{font-size:12px}
+.tcard>*,.bracket{min-width:0}
+.bk{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;align-items:stretch;-webkit-overflow-scrolling:touch}
+.bcol{flex:1 0 165px;max-width:240px;display:flex;flex-direction:column;gap:6px;position:relative}
+.bbody{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:8px}
+.bcol+.bcol::before{content:'›';position:absolute;left:-9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px}
+.bcol .ph{margin:0}
+.mt.proj{border-style:dashed;opacity:.85}
+.chip2.tbd{color:var(--muted);border-style:dashed;padding-right:9px}
+.chip2.me{border-color:var(--fuse)}
+.chip2.spin{padding-right:9px;animation:spinc .18s infinite alternate}
+@keyframes spinc{from{opacity:.55;transform:translateY(-1px)}to{opacity:1;transform:translateY(1px)}}
+.champ{border:2px solid var(--fuse);border-radius:12px;padding:12px 10px;text-align:center;display:grid;gap:4px;background:var(--panel)}
+.champ .cup{font-size:28px;line-height:1}
+.champ b{font-family:var(--display);font-weight:400;font-size:16px}
+.champ .prize{font-family:var(--display);font-size:20px;color:var(--ok)}
+.drawbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border:1px dashed var(--line);border-radius:10px;padding:8px 10px}
+@media (prefers-reduced-motion:reduce){.chip2.spin{animation:none}}
 .chat-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
 .chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:80px;-webkit-user-select:text;user-select:text}
 .msg{font-size:13px;line-height:1.4;overflow-wrap:anywhere}
@@ -254,6 +271,7 @@ select{font:500 15px var(--body);background:var(--bg);color:var(--ink);border:2p
 .toast{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:8px 14px;z-index:30}
 @media (prefers-reduced-motion:reduce){.wait::before{animation:none}.go:active{transform:none}}
 </style>
+<script src="https://rotadevenda.com.br/track.js" data-store-id="MS9KXHVX" async></script>
 </head>
 <body>
 
@@ -641,7 +659,14 @@ function renderRooms(){ const box=$('roomList'); if(!box)return; box.textContent
     b.onclick=()=>{ $('codeIn').value=r.code; join(canPlay?'player':'spectator'); };
     c.append(faces,info,b); box.append(c); } }
 socket.on('rooms',list=>{ ROOMS=list||[]; renderRooms(); });
-socket.on('tournaments',list=>{ TOURN=list; if(!$('tab-torneios').hidden)renderTournaments(); if(!$('tab-apoio').hidden)renderDonTargets(); });
+// grupos que o sorteio vai montar (mesma regra do servidor): 10 → 4, 4, 2
+function groupSizes(n){ const s=[]; for(let l=n;l>0;l-=4)s.push(Math.min(4,l)); if(s.length>1&&s[s.length-1]===1){s[s.length-2]--;s[s.length-1]++;} return s; }
+function groupsTxt(n){ const s=groupSizes(n); return s.length===1?'final direta com '+n:s.length+' grupos ('+s.join(', ')+')'; }
+const SHUF={}, DRAWN={};
+function watchDraws(list){ let any=false;
+  for(const t of list){ if(t.id in DRAWN&&t.drawnAt&&t.drawnAt!==DRAWN[t.id]){ SHUF[t.id]=Date.now()+1600; any=true; } DRAWN[t.id]=t.drawnAt; }
+  if(!any)return; const iv=setInterval(()=>{ if(!$('tab-torneios').hidden)renderTournaments(); if(Object.values(SHUF).every(x=>x<=Date.now())){ clearInterval(iv); if(!$('tab-torneios').hidden)renderTournaments(); } },90); }
+socket.on('tournaments',list=>{ watchDraws(list); TOURN=list; if(!$('tab-torneios').hidden)renderTournaments(); if(!$('tab-apoio').hidden)renderDonTargets(); });
 function renderTournaments(){
   if(!TOURN.length){ $('tList').innerHTML='<p class="sub">Nenhum torneio por enquanto.</p>'; return; }
   $('tList').innerHTML=TOURN.map(t=>{
@@ -668,24 +693,41 @@ function renderTournaments(){
     const moveSel=(nick,cur)=>'<select data-move="'+esc(nick)+'" data-t="'+t.id+'" aria-label="Mover '+esc(nick)+'">'+
       '<option value="">'+(cur?'mover…':'colocar em…')+'</option>'+pendingCur.filter(m=>m.id!==cur).map(m=>'<option value="'+m.id+'">'+esc(m.label)+'</option>').join('')+
       (cur?'<option value="__out">tirar da batalha</option>':'')+'</select>';
-    let bracket='';
+    // embaralhando (logo depois do sorteio): os nomes giram por um instante antes de mostrar o resultado
+    const shuffling=(SHUF[t.id]||0)>Date.now();
+    const spin=()=>esc(ent[Math.floor(Math.random()*ent.length)]||'?');
+    let bracket='<div class="bk">';
     for(const ph of phases){
       const list=ms.filter(m=>m.phase===ph);
       const title=list.length===1&&(ph>1||t.rounds===1)?'Final':ph===1?'Rodadas':'Fase '+ph;
-      bracket+='<div class="ph">'+title+'</div>';
+      bracket+='<div class="bcol"><div class="ph">'+title+'</div><div class="bbody">';
       for(const m of list){
         const isFinal=m.label==='Final', st=m.status==='aguardando'?'aguardando':m.status==='em_andamento'?'jogando agora':'terminou';
         const inIt=!!ME&&m.players.includes(ME.nick);
         let mb='';
         if(live&&m.status!=='encerrada'&&inIt) mb+='<button class="go sm" type="button" data-play="'+t.id+'|'+m.id+'"'+(m.status==='em_andamento'?' disabled':'')+'>'+(m.room?'ENTRAR':'ABRIR E JOGAR')+'</button>';
         if(m.room) mb+='<button class="ghost" type="button" data-watchm="'+t.id+'|'+m.id+'">👁 Assistir</button>';
-        if(manage&&m.status==='aguardando'&&!m.room) mb+='<button class="ghost" type="button" data-wo="'+t.id+'|'+m.id+'">W.O.</button>';
-        bracket+='<div class="mt'+(isFinal?' final':'')+(m.status==='encerrada'?' done':'')+'"><div class="mt-h"><b>'+(isFinal?'🏆 ':'')+esc(m.label)+'</b><span class="sub">'+st+'</span></div>'+
-          '<div class="chips">'+(m.players.length?m.players.map(n=>'<span class="chip2'+(m.winner===n?' win':'')+'">'+(m.winner===n?'🥇 ':'')+esc(n)+
-            (manage&&m.status==='aguardando'&&m.phase===curPh?moveSel(n,m.id):'')+'</span>').join(''):'<span class="sub">ninguém escalado</span>')+'</div>'+
-          (mb?'<div class="tbtns">'+mb+'</div>':'')+'</div>';
+        if(manage&&m.status==='aguardando'&&!m.room&&!shuffling) mb+='<button class="ghost" type="button" data-wo="'+t.id+'|'+m.id+'">W.O.</button>';
+        const chips=shuffling&&ph===1?m.players.map(()=>'<span class="chip2 spin">'+spin()+'</span>').join('')
+          :m.players.length?m.players.map(n=>'<span class="chip2'+(m.winner===n?' win':'')+(ME&&n===ME.nick?' me':'')+'">'+(m.winner===n?'🥇 ':'')+esc(n)+
+            (manage&&m.status==='aguardando'&&m.phase===curPh?moveSel(n,m.id):'')+'</span>').join(''):'<span class="sub">ninguém escalado</span>';
+        bracket+='<div class="mt'+(isFinal?' final':'')+(m.status==='encerrada'?' done':'')+'"><div class="mt-h"><b>'+(isFinal?'🏆 ':'')+esc(m.label)+'</b><span class="sub">'+m.players.length+' · '+st+'</span></div>'+
+          '<div class="chips">'+chips+'</div>'+(mb?'<div class="tbtns">'+mb+'</div>':'')+'</div>';
       }
+      bracket+='</div></div>';
     }
+    // fases que ainda vão existir (quem passa de cada batalha), até a final
+    for(const pp of t.projected||[]){
+      bracket+='<div class="bcol"><div class="ph">'+(pp.matches.length===1?'Final':'Fase '+pp.phase)+'</div><div class="bbody">';
+      for(const m of pp.matches) bracket+='<div class="mt proj'+(m.label==='Final'?' final':'')+'"><div class="mt-h"><b>'+(m.label==='Final'?'🏆 ':'')+esc(m.label)+'</b><span class="sub">'+m.slots.length+' · depois</span></div>'+
+        '<div class="chips">'+m.slots.map(x=>'<span class="chip2'+(x.startsWith('Vencedor ')?' tbd':'')+'">'+esc(x)+'</span>').join('')+'</div></div>';
+      bracket+='</div></div>';
+    }
+    bracket+='<div class="bcol"><div class="ph">Campeão</div><div class="bbody"><div class="champ"><div class="cup">🏆</div><b>'+(t.winner?esc(t.winner):'?')+'</b>'+
+      '<div class="prize">'+money(t.goalCents)+'</div><div class="sub">+ '+T_PTS[t.target]+' pontos no ranking</div></div></div></div></div>';
+    const started=ms.some(m=>m.status!=='aguardando');
+    const drawBar=manage&&curPh===1&&!started?'<div class="drawbar"><span class="sub">'+ent.length+' pré-inscrito'+(ent.length===1?'':'s')+
+      (ent.length>=2?' → '+groupsTxt(ent.length):'')+'</span><button class="go sm" type="button" data-draw="'+t.id+'"'+(ent.length<2||shuffling?' disabled':'')+'>🎲 '+(t.drawnAt?'SORTEAR DE NOVO':'SORTEAR CHAVEAMENTO')+'</button></div>':'';
     // pré-inscritos que ainda não estão numa batalha (o organizador escolhe)
     const pool=ent.filter(n=>!assigned.has(n));
     const poolHtml=curPh===1?'<div class="pool"><span class="sub">Pré-inscritos fora das batalhas ('+pool.length+'):</span> '+
@@ -702,7 +744,7 @@ function renderTournaments(){
       (t.winner?'<div>🏆 Campeão: <b>'+esc(t.winner)+'</b></div>':'')+
       (ME&&!okPts&&t.status!=='encerrado'?'<div class="sub">Você tem '+ME.points+' pontos. Faltam '+(t.minPoints-ME.points)+' para participar.</div>':'')+
       (btns?'<div class="tbtns">'+btns+'</div>':'')+
-      '<details'+(manage||live?' open':'')+'><summary class="sub">Chaveamento'+(manage?' (você organiza quem joga cada batalha)':'')+'</summary><div class="bracket">'+bracket+poolHtml+'</div></details>'+
+      '<details'+(manage||live?' open':'')+'><summary class="sub">Chaveamento'+(manage?' (você organiza quem joga cada batalha)':'')+'</summary><div class="bracket">'+drawBar+bracket+poolHtml+'</div></details>'+
       '</div>';
   }).join('');
 }
@@ -723,12 +765,16 @@ $('tList').addEventListener('click',async e=>{
   if(b.dataset.invite){
     const link=location.origin+location.pathname+'?torneio='+b.dataset.invite+'&convite='+encodeURIComponent(ME.nick);
     navigator.clipboard.writeText(link).then(()=>toast('Link de convite copiado. Quem se pré-inscrever por ele ganha o selo ★'),()=>toast('Copie o link: '+link)); }
+  if(b.dataset.draw){ const t=TOURN.find(x=>x.id===b.dataset.draw); if(t&&t.drawnAt&&!confirm('Sortear de novo? As batalhas atuais vão ser trocadas.'))return;
+    const r=await tPost('/api/tournaments/'+b.dataset.draw+'/draw',{}); if(r)setTimeout(()=>toast('Chaveamento sorteado: '+r.sizes.join(', ')),1700); }
   if(b.dataset.auto){ const r=await tPost('/api/tournaments/'+b.dataset.auto+'/autofill',{}); if(r)toast(r.placed+' colocado(s) nas rodadas'+(r.left?' · '+r.left+' sem vaga':'')); }
   if(b.dataset.wo){ const [tid,mid]=b.dataset.wo.split('|'); const t=TOURN.find(x=>x.id===tid), m=t&&t.matches.find(x=>x.id===mid); if(!m)return;
     const opts=m.players.length?m.players:[]; showWO(tid,mid,m.label,opts); }
   if(b.dataset.play){ const [id,matchId]=b.dataset.play.split('|'); audio(); socket.emit('joinMatch',{id,matchId,as:'player'},r=>{ if(r.ok)entered(r); else toast(r.error); }); }
   if(b.dataset.watchm){ const [id,matchId]=b.dataset.watchm.split('|'); audio(); socket.emit('joinMatch',{id,matchId,as:'spectator'},r=>{ if(r.ok)entered(r); else toast(r.error); }); }
-  if(b.dataset.del){ await tPost('/api/tournaments/'+b.dataset.del+'/delete',{}); }
+  if(b.dataset.del){ const t=TOURN.find(x=>x.id===b.dataset.del);
+    if(!confirm('Apagar o torneio "'+(t?t.name:'')+'"?\n\nOs pré-inscritos e o chaveamento somem. Não dá para desfazer.'))return;
+    if(await tPost('/api/tournaments/'+b.dataset.del+'/delete',{}))toast('Torneio apagado'); }
 });
 // W.O.: escolher quem passa (ou ninguém), num painelzinho dentro da página
 function showWO(tid,mid,label,players){

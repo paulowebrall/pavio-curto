@@ -180,12 +180,34 @@ function tPub(t) {
   ensureBracket(t);
   return { id: t.id, name: t.name, by: (db.users[t.createdBy] || {}).nick || null, desc: t.desc, rounds: t.rounds,
     goalCents: t.goalCents, raisedCents: t.raisedCents, minPoints: t.minPoints, target: t.target,
-    status: t.status, winner: t.winner || null, createdAt: t.createdAt,
+    status: t.status, winner: t.winner || null, createdAt: t.createdAt, drawnAt: t.drawnAt || null, projected: projectBracket(t),
     entrants: t.entrants.map(e => nickOf(e.uid)), spots: MAX_PRE,
     matches: t.matches.map(m => ({ id: m.id, label: matchLabel(t, m), phase: m.phase, status: m.status,
       players: m.players.map(nickOf), winner: m.winner ? nickOf(m.winner) : null, room: m.room && rooms.has(m.room) ? m.room : null })) };
 }
 const canManage = (u, t) => isAdmin(u) || t.createdBy === u.uid;
+
+// Sorteio: grupos de 4 na ordem; o que sobra vira o último grupo (10 → 4, 4, 2). Nunca deixa alguém sozinho: 9 → 4, 3, 2.
+function groupSizes(n) {
+  const sizes = []; for (let left = n; left > 0; left -= MAX_PLAYERS) sizes.push(Math.min(MAX_PLAYERS, left));
+  if (sizes.length > 1 && sizes[sizes.length - 1] === 1) { sizes[sizes.length - 2]--; sizes[sizes.length - 1]++; }
+  return sizes;
+}
+// Próximas fases que ainda não existem, até a final, para mostrar o caminho até o campeão.
+// Segue a mesma regra de advance(): o vencedor i da fase vai para a batalha i % quantidade da fase seguinte.
+function projectBracket(t) {
+  if (t.status === 'encerrado' || !t.matches.length) return [];
+  let ph = lastPhase(t), slots = phaseOf(t, ph).map(m => m.winner ? nickOf(m.winner) : 'Vencedor ' + matchLabel(t, m));
+  const out = [];
+  while (slots.length > 1) {
+    ph++; const count = Math.ceil(slots.length / MAX_PLAYERS);
+    const ms = Array.from({ length: count }, (_, i) => ({ label: count === 1 ? 'Final' : 'Fase ' + ph + ' · Batalha ' + (i + 1), slots: [] }));
+    slots.forEach((s, i) => ms[i % count].slots.push(s));
+    out.push({ phase: ph, matches: ms });
+    slots = ms.map(m => 'Vencedor ' + m.label);
+  }
+  return out;
+}
 
 // depois de cada batalha: se a fase acabou, monta a próxima ou declara o campeão
 function advance(t) {
@@ -284,6 +306,21 @@ app.post('/api/tournaments/:id/autofill', auth, (req, res) => {
     if (!m) break; m.players.push(uid); placed++;
   }
   save(); broadcastTournaments(); refreshMatchLobbies(t); res.json({ ok: true, placed, left: free.length - placed });
+});
+// Sortear: embaralha todos os pré-inscritos e monta a primeira fase de novo (grupos de até 4).
+// Pode sortear de novo enquanto nenhuma batalha começou.
+app.post('/api/tournaments/:id/draw', auth, (req, res) => {
+  const t = tGuard(req, res); if (!t) return;
+  if (lastPhase(t) !== 1 || t.matches.some(m => m.status !== 'aguardando')) return res.status(400).json({ error: 'O torneio já começou. Não dá mais para sortear.' });
+  if (t.matches.some(m => m.room && rooms.has(m.room))) return res.status(400).json({ error: 'Tem gente na sala de uma batalha. Feche a sala antes de sortear.' });
+  const ids = t.entrants.map(e => e.uid);
+  if (ids.length < 2) return res.status(400).json({ error: 'Precisa de pelo menos 2 pré-inscritos para sortear.' });
+  for (let i = ids.length - 1; i > 0; i--) { const j = require('crypto').randomInt(i + 1); [ids[i], ids[j]] = [ids[j], ids[i]]; }
+  const sizes = groupSizes(ids.length);
+  t.matches = []; t.rounds = sizes.length; addMatches(t, 1, sizes.length);
+  let k = 0; t.matches.forEach((m, i) => { m.players = ids.slice(k, k + sizes[i]); k += sizes[i]; });
+  t.drawnAt = Date.now();
+  save(); broadcastTournaments(); res.json({ ok: true, sizes });
 });
 // W.O.: o organizador define o vencedor de uma batalha que não vai acontecer (ou encerra uma batalha vazia)
 app.post('/api/tournaments/:id/walkover', auth, (req, res) => {
