@@ -871,7 +871,7 @@ function toast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; clea
 const urlCode=new URLSearchParams(location.search).get('sala');
 if(urlCode)$('codeIn').value=urlCode.toUpperCase();
 
-$('createBtn').onclick=()=>{ audio(); $('homeErr').textContent=''; socket.emit('create',{},r=>{ if(r.ok){me=r.you;show('lobby');} }); };
+$('createBtn').onclick=()=>{ audio(); $('homeErr').textContent=''; socket.emit('create',{},r=>{ if(r.ok){me=r.you;show('lobby');} else $('homeErr').textContent=r.error; }); };
 // depois de entrar numa sala: quem assiste uma partida já começada vai direto para a tela do jogo
 let SPECTATOR=false;
 function entered(r){ me=r.you; SPECTATOR=!!r.spectator; document.body.classList.toggle('spectating',SPECTATOR);

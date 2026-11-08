@@ -565,6 +565,15 @@ function joinSpectator(socket, r) {
   socket.join(r.code); socket.data.room = r.code; socket.data.spectator = true;
   socket.emit('chatHistory', r.chat); sysMsg(r, u.nick + ' está assistindo');
 }
+// Uma conta só joga numa sala por vez: se a mesma conta já está como jogador numa sala por outra aba ou
+// outro aparelho, não pode criar sala nem entrar para jogar em outra. Assistir continua liberado.
+function busyElsewhere(socket) {
+  for (const r of rooms.values()) if (r.members.some(m => m.uid === socket.data.uid && m.sid !== socket.id)) return r;
+  return null;
+}
+const busyMsg = r => r.game
+  ? `Você já está jogando uma partida na sala ${r.code} (em outra aba ou aparelho). Termine ou saia dela antes de entrar em outra.`
+  : `Você já está na sala ${r.code} (em outra aba ou aparelho). Saia dela antes de criar ou entrar em outra.`;
 const roomAck = (socket, r) => ({ ok: true, code: r.code, you: socket.id, spectator: !!socket.data.spectator, playing: !!r.game });
 const newRoom = (socket, extra) => {
   const r = Object.assign({ code: newCode(), hostSid: socket.id, members: [], specs: [], chat: [], bots: 1, diff: 'normal', target: 3, stage: 'padrao', petBoxes: 1, tournament: null, game: null, loop: null }, extra);
@@ -587,6 +596,7 @@ io.on('connection', socket => {
   socket.emit('rooms', listRooms());
 
   socket.on('create', (_, ack) => {
+    const busy = busyElsewhere(socket); if (busy) return ack && ack({ ok: false, error: busyMsg(busy) });
     leaveRoom(socket);
     const r = newRoom(socket, {});
     ack && ack(roomAck(socket, r)); sendLobby(r);
@@ -602,6 +612,7 @@ io.on('connection', socket => {
       leaveRoom(socket); joinSpectator(socket, r);
       ack && ack(roomAck(socket, r)); return sendLobby(r);
     }
+    const busy = busyElsewhere(socket); if (busy) return ack && ack({ ok: false, error: busyMsg(busy) });
     if (r.game) return ack && ack({ ok: false, error: 'Essa sala já está no meio de uma partida. Você pode entrar para assistir.' });
     if (r.members.length >= MAX_PLAYERS) return ack && ack({ ok: false, error: 'A sala está cheia (4 jogadores).' });
     const tm = matchOfRoom(r);
@@ -627,6 +638,7 @@ io.on('connection', socket => {
     }
     if (tm.status === 'encerrada') return ack && ack({ ok: false, error: 'Essa batalha já terminou.' });
     if (!tm.players.includes(socket.data.uid)) return ack && ack({ ok: false, error: 'Você não está escalado para essa batalha. Quem organiza o torneio escolhe quem joga. Você pode assistir.' });
+    const busy = busyElsewhere(socket); if (busy) return ack && ack({ ok: false, error: busyMsg(busy) });
     if (r) {
       if (r.game) return ack && ack({ ok: false, error: 'Essa batalha já começou. Você pode assistir.' });
       if (!r.members.some(m => m.sid === socket.id)) { leaveRoom(socket); joinMember(socket, r); }
