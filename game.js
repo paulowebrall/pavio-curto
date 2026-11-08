@@ -8,16 +8,18 @@ const DIRS = { u: { x: 0, y: -1 }, d: { x: 0, y: 1 }, l: { x: -1, y: 0 }, r: { x
 const BOT_NAMES = ['Brasa', 'Gelo', 'Broto', 'Faísca', 'Kaze', 'Estrela', 'Canela', 'Trovão', 'Marconis'];
 const NCHARS = BOT_NAMES.length;   // 9 personagens
 const SPAWNS = [[1, 1], [13, 11], [13, 1], [1, 11]];
-const PU_TEXT = { bomb: '+1 BOMBA', fire: '+ ALCANCE', speed: '+ VELOCIDADE', kick: 'CHUTE!', glove: 'LUVINHA!', cat: 'GATO!', roo: 'CANGURU!', tank: 'TANQUE!', lion: 'LEÃO!', dragon: 'DRAGÃO!' };
+const PU_TEXT = { bomb: '+1 BOMBA', fire: '+ ALCANCE', speed: '+ VELOCIDADE', kick: 'CHUTE!', glove: 'LUVINHA!', cat: 'GATO!', roo: 'CANGURU!', tank: 'TANQUE!', lion: 'LEÃO!', dragon: 'DRAGÃO!', toucan: 'TUCABUM!' };
 // Luvinha: arremessa a bomba 3 casas. Se cair em bloco/bomba, quica 1 casa por vez. Na parede de fora, sai do outro lado.
 const THROW_DIST = 3, THROW_TIME = .35, BOUNCE_TIME = .13;
 // Velocidade de andar: 1/3 mais lenta que a versão anterior (3.4 → 2.27 casas/s).
 const SPEED0 = 3.4 * 2 / 3, SPEED_STEP = .55 * 2 / 3, SPEED_MAX = 6.2 * 2 / 3;
 const KICK_STEP = .14;          // bomba chutada anda 1 casa a cada 0,14 s (metade da velocidade antiga)
 // Pets: tempo de recarga da habilidade (s)
-const PET_CD = { cat: 3, roo: 1, tank: .6, lion: 7, dragon: 4 };
+const PET_CD = { cat: 3, roo: 1, tank: .6, lion: 7, dragon: 4, toucan: 6 };
 const RULES_NOW = 5;   // 3 = bots usam bem os poderes dos pets; 4 = poder do pet não atravessa bomba; 5 = diagonal inteligente e esquina tolerante para jogadores
-const PETS = ['cat', 'roo', 'tank', 'lion', 'dragon'];
+const PETS = ['cat', 'roo', 'tank', 'lion', 'dragon', 'toucan'];   // novos pets entram sempre no fim (replays antigos sorteiam só entre os primeiros)
+// Tucabum: bota um ovo que choca e vira um filhotinho explosivo que corre atrás do inimigo mais perto
+const EGG_HATCH = .6, CHICK_LIFE = 2.5, CHICK_SPEED = 3.8, CHICK_RANGE = 1;
 // Leão: escudo com cara de leão que segura o fogo por um tempo. Dragão: cospe fogo 3 casas e deixa quem pegar atordoado
 const LION_TIME = 2.5, BREATH_LEN = 3, BREATH_SHOW = .5, STUN_TIME = 2;
 const DASH_TIME = 1, DASH_MULT = 2.2, JUMP_TIME = .4, UNMOUNT_SHIELD = 1.5;
@@ -114,7 +116,7 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
 
   function newRound() {
     G.grid = new Uint8Array(N); G.flame = new Float32Array(N); G.fdir = new Uint8Array(N);
-    G.pu = new Array(N).fill(null); G.bombs = []; G.breaking = []; G.drops = []; G.breaths = [];
+    G.pu = new Array(N).fill(null); G.bombs = []; G.breaking = []; G.drops = []; G.breaths = []; G.chicks = [];
     G.stage = stage === 'sorteio' ? stageList[(rnd() * stageList.length) | 0] : (STAGES.includes(stage) ? stage : 'padrao');
     G.river = new Uint8Array(N);
     if (G.stage === 'agua') for (const x of RIVER_X) for (let y = 1; y < ROWS - 1; y++) G.river[idx(x, y)] = 1;
@@ -375,6 +377,57 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
         if (o.shieldT > 0) { G.ev.push(['blocked', o.x, o.y]); continue; }   // o escudo do leão segura o fogo do dragão também
         o.stunT = STUN_TIME; o.moving = false; o.dashT = 0; if (o.ai) o.ai.next = null; G.ev.push(['stun', o.x, o.y]);
       }
+    } else if (p.mount === 'toucan') {
+      // Tucabum: bota um ovo onde está; ele choca e o filhote sai correndo atrás do inimigo mais perto
+      if (G.grid[idx(cx, cy)] !== 0) return;
+      G.chicks.push({ x: cx, y: cy, nx: cx, ny: cy, st: 'egg', t: EGG_HATCH, owner: p, fx: fx || 0, fy: fy || 1, moving: false, target: null });
+      p.petCd = PET_CD.toucan; G.ev.push(['egg', cx, cy]);
+    }
+  }
+  // Tucabum: ovo → filhote que persegue o inimigo mais perto e explode ao encostar (ou quando o tempo acaba)
+  function chickTarget(c) {
+    let best = null, bd = 1e9;
+    for (const o of G.players) { if (o === c.owner || !o.alive || o.train || o.whale) continue;
+      const d = Math.abs(o.x - c.x) + Math.abs(o.y - c.y); if (d < bd) { bd = d; best = o; } }
+    return best;
+  }
+  function chickStep(sx, sy, tx, ty) {   // próxima casa no caminho mais curto (sem atravessar parede, bloco nem bomba)
+    if (sx === tx && sy === ty) return null;
+    const prev = new Int16Array(N).fill(-1), start = idx(sx, sy), goal = idx(tx, ty), q = [start]; prev[start] = start;
+    for (let h = 0; h < q.length; h++) { const c = q[h]; if (c === goal) break; const x = c % COLS, y = (c / COLS) | 0;
+      for (const [dx, dy] of D4) { const nx = x + dx, ny = y + dy, n = idx(nx, ny);
+        if (!inB(nx, ny) || prev[n] !== -1 || G.grid[n] !== 0 || (bombAt(nx, ny) && n !== goal)) continue; prev[n] = c; q.push(n); } }
+    let end = goal;
+    if (prev[goal] === -1) {   // sem caminho até o alvo: vai para a casa alcançável mais perto dele
+      let bd = Math.abs(sx - tx) + Math.abs(sy - ty); end = -1;
+      for (const c of q) { const d = Math.abs(c % COLS - tx) + Math.abs(((c / COLS) | 0) - ty); if (d < bd) { bd = d; end = c; } }
+      if (end < 0) return null;
+    }
+    let c = end; while (prev[c] !== start) c = prev[c];
+    return [c % COLS, (c / COLS) | 0];
+  }
+  function chickBoom(c) {
+    G.chicks.splice(G.chicks.indexOf(c), 1);
+    const x = Math.round(c.x), y = Math.round(c.y), b = bombAt(x, y);
+    if (b) b.t = 0;   // explode a bomba que estiver ali
+    else { c.owner.active++; G.bombs.push({ x, y, t: 0, range: CHICK_RANGE, owner: c.owner, pass: new Set(), slide: null }); }   // o explode() devolve esse +1
+    G.ev.push(['chickboom', x, y]);
+  }
+  function chickUpdate(dt) {
+    for (const c of G.chicks.slice()) {
+      c.t -= dt;
+      const cx = Math.round(c.x), cy = Math.round(c.y);
+      if (G.flame[idx(cx, cy)] > 0 || G.grid[idx(cx, cy)] !== 0) { chickBoom(c); continue; }   // fogo ou parede caindo em cima: explode na hora
+      if (c.st === 'egg') { if (c.t <= 0) { c.st = 'chick'; c.t = CHICK_LIFE; G.ev.push(['hatch', c.x, c.y]); } continue; }
+      if (c.t <= 0) { chickBoom(c); continue; }
+      if (!c.target || !c.target.alive || c.target.train || c.target.whale) c.target = chickTarget(c);
+      const tg = c.target;
+      if (tg && Math.abs(tg.x - c.x) < .6 && Math.abs(tg.y - c.y) < .6) { chickBoom(c); continue; }
+      if (c.nx === c.x && c.ny === c.y) { const st = tg && chickStep(cx, cy, Math.round(tg.x), Math.round(tg.y)); if (st) { c.nx = st[0]; c.ny = st[1]; } }
+      const d = CHICK_SPEED * dt, ddx = c.nx - c.x, ddy = c.ny - c.y;
+      if (ddx || ddy) { c.fx = Math.sign(ddx); c.fy = Math.sign(ddy); c.moving = true; } else c.moving = false;
+      if (Math.abs(ddx) + Math.abs(ddy) <= d) { c.x = c.nx; c.y = c.ny; }
+      else { c.x += Math.sign(ddx) * Math.min(Math.abs(ddx), d); c.y += Math.sign(ddy) * Math.min(Math.abs(ddy), d); }
     }
   }
   // Pegou fogo: se estiver montado, perde o pet e fica piscando um pouco; se não, morre.
@@ -507,6 +560,7 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
     const D = new Float32Array(N).fill(99);
     const list = G.bombs.map(b => ({ x: b.x, y: b.y, r: b.range, t: b.t })); if (extra) list.push(extra);
     for (const v of G.volc) if (v.t < 3) list.push({ x: v.x, y: v.y, r: VOLC_RANGE, t: v.t });   // bots fogem do vulcão
+    for (const c of G.chicks) list.push({ x: Math.round(c.x), y: Math.round(c.y), r: CHICK_RANGE, t: c.st === 'egg' ? c.t + .3 : Math.min(c.t, .5) });   // e do filhote do Tucabum
     const trainDanger = G.train && G.train.s !== 'idle';   // bots saem do trilho quando o sino toca
     for (let pass = 0; pass < 3; pass++) for (const a of list) blastCells(a.x, a.y, a.r, (cx, cy) => { for (const o of list) if (o !== a && o.x === cx && o.y === cy && o.t > a.t) o.t = a.t; });
     for (const a of list) blastCells(a.x, a.y, a.r, (cx, cy) => { const i = idx(cx, cy); if (a.t < D[i]) D[i] = a.t; });
@@ -596,6 +650,8 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
       else if (G.players.some(o => o !== p && o.alive && Math.abs(Math.round(o.x) - cx) + Math.abs(Math.round(o.y) - cy) <= 3) && rnd() < (G.bombs.length ? .03 : .008)) usePet(p);   // inimigo chegando perto (mais ainda se tiver bomba no campo)
     } else if (m === 'dragon') {   // cospe fogo em quem estiver na mira (e depois o bot já pensa em bomba)
       const e = enemyInLine(p, BREATH_LEN, true); if (e && rnd() < .35) useFacing(e.x, e.y);
+    } else if (m === 'toucan') {   // bota o ovo quando tem inimigo por perto e ele não está em perigo
+      if (!danger && G.players.some(o => o !== p && o.alive && !o.train && !o.whale && Math.abs(Math.round(o.x) - cx) + Math.abs(Math.round(o.y) - cy) <= 6) && rnd() < .04) usePet(p);
     } else if (m === 'cat') {   // arrancada para fugir da explosão, ou para ir atrás de alguém
       if (p.moving && (danger || rnd() < .006)) usePet(p);
     } else if (m === 'roo') {   // pula por cima de bloco/bomba para fugir, ou quando ficou travado
@@ -738,6 +794,7 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
       } else b.drift = 0;
       for (const p of b.pass) if (Math.abs(p.x - b.x) >= .98 || Math.abs(p.y - b.y) >= .98) b.pass.delete(p);
     }
+    chickUpdate(dt);
     // bomba que encosta no fogo ainda aceso (resto de outra explosão) explode também
     for (const b of G.bombs) if (!b.fly && b.t > 0 && G.flame[idx(b.x, b.y)] > 0) b.t = 0;
     let boom = true;
@@ -798,6 +855,7 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
     return {
       cracks: G.cracks.length ? G.cracks.map(k => [k.x, k.y, k.n, k.open ? 1 : 0]) : null,
       breaths: G.breaths.length ? G.breaths.map(b => [b.x, b.y, b.dx, b.dy, b.len, +b.t.toFixed(2)]) : null,
+      chicks: G.chicks.length ? G.chicks.map(c => [+c.x.toFixed(3), +c.y.toFixed(3), c.st === 'egg' ? 0 : 1, +Math.max(0, c.t).toFixed(2), c.fx, c.fy, c.moving ? 1 : 0, c.owner.char]) : null,
       whale: G.whale ? { s: G.whale.s, x: G.whale.x, y: G.whale.y, t: +Math.max(0, G.whale.t).toFixed(2), e: !!G.whale.empty } : null,
       tornado: G.tornado ? { s: G.tornado.s, x: G.tornado.x, y: G.tornado.y, t: +Math.max(0, G.tornado.t).toFixed(2) } : null,
       tunnels: G.tunnels.length ? G.tunnels : null,
