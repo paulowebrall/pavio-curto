@@ -16,10 +16,10 @@ const SPEED0 = 3.4 * 2 / 3, SPEED_STEP = .55 * 2 / 3, SPEED_MAX = 6.2 * 2 / 3;
 const KICK_STEP = .14;          // bomba chutada anda 1 casa a cada 0,14 s (metade da velocidade antiga)
 // Pets: tempo de recarga da habilidade (s)
 const PET_CD = { cat: 3, roo: 1, tank: .6, lion: 7, dragon: 4, toucan: 6 };
-const RULES_NOW = 5;   // 3 = bots usam bem os poderes dos pets; 4 = poder do pet não atravessa bomba; 5 = diagonal inteligente e esquina tolerante para jogadores
+const RULES_NOW = 6;   // 3 = bots usam bem os poderes dos pets; 4 = poder do pet não atravessa bomba; 5 = diagonal inteligente e esquina tolerante para jogadores; 6 = ovo do Tucabum vira mina
 const PETS = ['cat', 'roo', 'tank', 'lion', 'dragon', 'toucan'];   // novos pets entram sempre no fim (replays antigos sorteiam só entre os primeiros)
-// Tucabum: bota um ovo que choca e vira um filhotinho explosivo que corre atrás do inimigo mais perto
-const EGG_HATCH = .6, CHICK_LIFE = 2.5, CHICK_SPEED = 3.8, CHICK_RANGE = 1;
+// Tucabum: bota um ovo-mina que explode se outro jogador encostar (dura 3 s). Regras 5: o ovo chocava e o filhote perseguia
+const EGG_HATCH = .6, CHICK_LIFE = 2.5, CHICK_SPEED = 3.8, CHICK_RANGE = 1, EGG_MINE_TIME = 3;
 // Leão: escudo com cara de leão que segura o fogo por um tempo. Dragão: cospe fogo 3 casas e deixa quem pegar atordoado
 const LION_TIME = 2.5, BREATH_LEN = 3, BREATH_SHOW = .5, STUN_TIME = 2;
 const DASH_TIME = 1, DASH_MULT = 2.2, JUMP_TIME = .4, UNMOUNT_SHIELD = 1.5;
@@ -380,7 +380,8 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
     } else if (p.mount === 'toucan') {
       // Tucabum: bota um ovo onde está; ele choca e o filhote sai correndo atrás do inimigo mais perto
       if (G.grid[idx(cx, cy)] !== 0) return;
-      G.chicks.push({ x: cx, y: cy, nx: cx, ny: cy, st: 'egg', t: EGG_HATCH, owner: p, fx: fx || 0, fy: fy || 1, moving: false, target: null });
+      if (RULES >= 6 && G.chicks.some(c => Math.round(c.x) === cx && Math.round(c.y) === cy)) return;   // já tem ovo aqui
+      G.chicks.push({ x: cx, y: cy, nx: cx, ny: cy, st: 'egg', t: RULES >= 6 ? EGG_MINE_TIME : EGG_HATCH, owner: p, fx: fx || 0, fy: fy || 1, moving: false, target: null });
       p.petCd = PET_CD.toucan; G.ev.push(['egg', cx, cy]);
     }
   }
@@ -418,6 +419,11 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
       c.t -= dt;
       const cx = Math.round(c.x), cy = Math.round(c.y);
       if (G.flame[idx(cx, cy)] > 0 || G.grid[idx(cx, cy)] !== 0) { chickBoom(c); continue; }   // fogo ou parede caindo em cima: explode na hora
+      if (RULES >= 6) {   // ovo-mina: explode quando outro jogador encosta; some sozinho depois de 3 s
+        if (c.t <= 0) { G.chicks.splice(G.chicks.indexOf(c), 1); G.ev.push(['eggfade', cx, cy]); continue; }
+        if (G.players.some(o => o !== c.owner && o.alive && !o.train && !o.whale && !o.jump && Math.abs(o.x - cx) < .6 && Math.abs(o.y - cy) < .6)) chickBoom(c);
+        continue;
+      }
       if (c.st === 'egg') { if (c.t <= 0) { c.st = 'chick'; c.t = CHICK_LIFE; G.ev.push(['hatch', c.x, c.y]); } continue; }
       if (c.t <= 0) { chickBoom(c); continue; }
       if (!c.target || !c.target.alive || c.target.train || c.target.whale) c.target = chickTarget(c);
@@ -560,12 +566,13 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
     const D = new Float32Array(N).fill(99);
     const list = G.bombs.map(b => ({ x: b.x, y: b.y, r: b.range, t: b.t })); if (extra) list.push(extra);
     for (const v of G.volc) if (v.t < 3) list.push({ x: v.x, y: v.y, r: VOLC_RANGE, t: v.t });   // bots fogem do vulcão
-    for (const c of G.chicks) list.push({ x: Math.round(c.x), y: Math.round(c.y), r: CHICK_RANGE, t: c.st === 'egg' ? c.t + .3 : Math.min(c.t, .5) });   // e do filhote do Tucabum
+    if (RULES < 6) for (const c of G.chicks) list.push({ x: Math.round(c.x), y: Math.round(c.y), r: CHICK_RANGE, t: c.st === 'egg' ? c.t + .3 : Math.min(c.t, .5) });   // e do filhote do Tucabum
     const trainDanger = G.train && G.train.s !== 'idle';   // bots saem do trilho quando o sino toca
     for (let pass = 0; pass < 3; pass++) for (const a of list) blastCells(a.x, a.y, a.r, (cx, cy) => { for (const o of list) if (o !== a && o.x === cx && o.y === cy && o.t > a.t) o.t = a.t; });
     for (const a of list) blastCells(a.x, a.y, a.r, (cx, cy) => { const i = idx(cx, cy); if (a.t < D[i]) D[i] = a.t; });
     for (let i = 0; i < N; i++) if (G.flame[i] > 0 || G.grid[i] === 3) D[i] = Math.min(D[i], 0);
     if (G.whale && G.whale.s === 'warn') { const i = idx(G.whale.x, G.whale.y); D[i] = Math.min(D[i], G.whale.t); }   // bots fogem da baleia
+    if (RULES >= 6) for (const c of G.chicks) { const i = idx(Math.round(c.x), Math.round(c.y)); D[i] = Math.min(D[i], .3); }   // bots não pisam no ovo-mina
     if (G.tornado && G.tornado.s !== 'idle') for (const [dx, dy] of [[0, 0], ...D4]) { const x = G.tornado.x + dx, y = G.tornado.y + dy; if (inB(x, y)) D[idx(x, y)] = Math.min(D[idx(x, y)], 1); }   // bots desviam do tornado
     if (trainDanger) for (let p = 1; p < G.path.length - 1; p++) { const [x, y] = G.path[p], i = idx(x, y); D[i] = Math.min(D[i], G.train.s === 'run' ? 0 : Math.max(0, G.train.t)); }
     return D;

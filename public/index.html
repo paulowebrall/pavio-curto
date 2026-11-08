@@ -504,7 +504,7 @@ select{font:500 15px var(--body);background:var(--bg);color:var(--ink);border:2p
       <span><b>Tanque</b>: solta todas as suas bombas em fila na frente</span>
       <span><b>Leão</b>: levanta um escudo com cara de leão por 2,5 segundos, e o fogo das bombas não pega em você</span>
       <span><b>Dragão</b>: cospe fogo até 3 casas à frente (para em bloco e em bomba); quem for atingido fica atordoado por 2 segundos (o escudo do leão segura)</span>
-      <span><b>Tucabum</b>: bota um ovo que choca em meio segundo e vira um filhotinho explosivo que corre atrás do inimigo mais perto por 2,5 segundos e explode ao encostar</span>
+      <span><b>Tucabum</b>: bota um ovo-mina onde está. Se outro jogador encostar nele, explode. Dura 3 segundos e some (você pode pisar no seu)</span>
       <span><b>Luvinha</b> (item laranja): parado em cima da sua bomba, ou com uma bomba logo à frente, aperte a tecla de bomba para arremessar 3 casas. Se ela cair num bloco, quica; se bater na parede de fora, sai do outro lado.</span>
       <span>Montado, uma explosão só derruba o pet, e você continua vivo.</span>
       <span><b>Morreu, perdeu:</b> todos os itens que você pegou (e o pet) se espalham pelo campo. Nada passa para a próxima rodada.</span>
@@ -1285,6 +1285,7 @@ function sfx(k){ if(muted||!AC)return; try{
   else if(k==='egg'){ blip(520,.08,'square',.05,380); blip(700,.06,'triangle',.04,0,.07); }
   else if(k==='hatch'){ noise(.06,2600,.15); blip(1500,.08,'triangle',.05,2100,.05); blip(1800,.08,'triangle',.05,2400,.15); }
   else if(k==='chickboom'){ blip(1900,.06,'square',.04,2600); }
+  else if(k==='eggfade'){ blip(600,.12,'sine',.03,300); }
   else if(k==='stun'){ for(let i=0;i<3;i++) blip(1400-i*200,.12,'triangle',.05,900,i*.1); }
   else if(k==='blocked'){ blip(900,.2,'square',.05,1500); }
   else if(k==='tank'){noise(.12,1500,.2);blip(140,.15,'square',.08,70);}
@@ -2219,12 +2220,14 @@ function drawChicks(){
   for(const [x,y,st,t,fx,fy,mv] of S.chicks){
     const cx=x*T+T/2, cy=y*T+T/2;
     ctx.fillStyle='rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(cx,cy+13,10,3.5,0,0,7); ctx.fill();
-    if(st===0){ // ovo: balança cada vez mais e racha antes de chocar
-      const k=1-Math.min(1,t/.6), wob=Math.sin(S.time*(18+k*20))*(.08+k*.3);
-      ctx.save(); ctx.translate(cx,cy+12); ctx.rotate(wob);
+    if(st===0){ // ovo-mina: balancinho leve, luzinha vermelha piscando; pisca antes de sumir
+      const mine=true, wob=Math.sin(S.time*5+x*3)*.05, k=0;
+      ctx.save(); ctx.translate(cx,cy+12); ctx.rotate(wob); if(t<.8&&Math.sin(S.time*30)>0)ctx.globalAlpha=.45;
       ctx.fillStyle='#fbf7ee'; ctx.strokeStyle='#120f26'; ctx.lineWidth=2; ctx.beginPath(); ctx.ellipse(0,-10,8,10.5,0,0,7); ctx.fill(); ctx.stroke();
       ctx.fillStyle='#4f7ff0'; for(const [a,b,r] of [[-3,-14,1.8],[3,-8,2.2],[-2,-5,1.4],[4,-15,1.2]]){ ctx.beginPath(); ctx.arc(a,b,r,0,7); ctx.fill(); }
       if(k>.45){ ctx.strokeStyle='#120f26'; ctx.lineWidth=1.3; ctx.beginPath(); ctx.moveTo(-7,-11); ctx.lineTo(-3,-8); ctx.lineTo(0,-12); ctx.lineTo(3,-8); ctx.lineTo(7,-11); ctx.stroke(); }
+      if(mine){ const on=Math.sin(S.time*12)>0; ctx.fillStyle=on?'#ff3b2a':'#c0392b'; ctx.strokeStyle='#120f26'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(0,-21,2.8,0,7); ctx.fill(); ctx.stroke();
+        if(on){ ctx.fillStyle='rgba(255,70,50,.35)'; ctx.beginPath(); ctx.arc(0,-21,5,0,7); ctx.fill(); } }   // luzinha de "armado"
       ctx.restore(); continue; }
     // filhote: bolinha azul com bico laranja e pavio soltando faísca; pisca vermelho perto de explodir
     const bob=mv?Math.abs(Math.sin(S.time*22))*-3:0, warn=t<.7&&Math.sin(S.time*30)>0, by=cy+6+bob;
