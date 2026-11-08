@@ -30,7 +30,7 @@ const TICK = 1000 / 60, STEP = 1 / 60, SEND_EVERY = 2, MAX_PLAYERS = 4;
 const POINTS_BY_DIFF = { facil: 1, normal: 2, dificil: 3 };          // partida normal: pela dificuldade dos bots
 const POINTS_BY_TOURNEY = { 2: 3, 3: 5, 5: 10 };                    // torneio: pelo número de vitórias
 const EMOTES = ['zangado', 'sorrindo', 'dedo', 'dormindo'];
-const NCHARS = 9;                                                   // personagens (igual ao game.js)
+const NCHARS = 10;                                                  // personagens (igual ao game.js)
 const MIN_HUMANS_FOR_POINTS = 1;                                    // vale ponto também contra bots; só ganha quem vence e está na sala até o fim
 
 // Publicar numa subpasta (ex.: rotadevenda.com.br/pavio-curto): BASE_PATH=/pavio-curto

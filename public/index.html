@@ -610,12 +610,13 @@ const CHARS=[
   {color:'#2cc4b4',belly:'#cff7f1',feet:'#17857a',light:'#bff3ec'},
   {color:'#d6448f',belly:'#ffd3ea',feet:'#8f2460',light:'#ffbfdf'},
   {color:'#8a8fa8',belly:'#e3e5ee',feet:'#55596e',light:'#d3d6e4'},
-  {color:'#6f74e8',belly:'#dcdcff',feet:'#3d419a',light:'#c9cbff'}];
+  {color:'#6f74e8',belly:'#dcdcff',feet:'#3d419a',light:'#c9cbff'},
+  {color:'#b06a30',belly:'#f6dcc0',feet:'#6e3f18',light:'#f0c9a2'}];
 const PU={bomb:'#4b6bff',fire:'#ff5a3c',speed:'#2fd28c',kick:'#c86bff',glove:'#ff9f1c',cat:'#ff8fc7',roo:'#e0a255',tank:'#7b8f4a',lion:'#e8a93a',dragon:'#3fb06a',toucan:'#2f63d8',pet:'#ffb23e'};
 const PET_NAME={cat:'gato',roo:'canguru',tank:'tanque',lion:'leão',dragon:'dragão',toucan:'tucabum'};
 const PU_LABEL={bomb:'1 BOMBA',fire:'ALCANCE',speed:'VELOCIDADE',kick:'O CHUTE',glove:'A LUVINHA'};
 let G_lastScatter=0;   // evita vários sons de item caindo ao mesmo tempo
-const CHAR_NAMES=['Brasa','Gelo','Broto','Faísca','Kaze','Estrela','Canela','Trovão','Marconis'];
+const CHAR_NAMES=['Brasa','Gelo','Broto','Faísca','Kaze','Estrela','Canela','Trovão','Marconis','Walker'];
 const $=id=>document.getElementById(id);
 /* ---------- conta (login Google, nick) ---------- */
 // pasta onde o jogo está publicado: "/" no localhost ou "/pavio-curto/" no site
@@ -2435,7 +2436,9 @@ const LOOK=[
   // Trovão: careca e grandão, barba cheia, regata cinza com raio
   {skin:'#d39a72',skinS:'#ad7550',hair:'#3b2a20',out:'#7c8399',outS:'#4f5568',pants:'#2f3442',boots:'#2a2420'},
   // Marconis: pele parda, black power grande com a raiz escura e o topo loiro, camisa social azul-marinho, calça cáqui e tênis branco
-  {skin:'#a86f48',skinS:'#83512f',hair:'#3a2418',out:'#3f5590',outS:'#27365e',pants:'#b39a6c',boots:'#f4f4f4'}];
+  {skin:'#a86f48',skinS:'#83512f',hair:'#3a2418',out:'#3f5590',outS:'#27365e',pants:'#b39a6c',boots:'#f4f4f4'},
+  // Walker: tucano explorador (original do jogo): cabeça azul-marinho com bicão colorido, asas no lugar dos braços, colete verde-água com bolsos, lenço, bermuda e bota de trilha
+  {skin:'#2b3f9e',skinS:'#1c2a72',hair:'#2b3f9e',out:'#1fb0a3',outS:'#137f76',pants:'#283567',boots:'#7a4a2a'}];
 function vgrad(y0,y1,a,b){ const g=ctx.createLinearGradient(0,y0,0,y1); g.addColorStop(0,a); g.addColorStop(1,b); return g; }
 function blob(x,y,rx,ry,fill,stroke){ ctx.fillStyle=fill; ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,7); ctx.fill(); if(stroke){ctx.strokeStyle=OUTLINE;ctx.lineWidth=1.6;ctx.stroke();} }
 function drawHuman(id,fx,fy,bob,step,feet,moving,gear){
@@ -2452,9 +2455,11 @@ function drawHuman(id,fx,fy,bob,step,feet,moving,gear){
   const swing=moving?step*.09:0;
   const arm=(x0,ang,front,len)=>{ len=len||8; ctx.save(); ctx.translate(x0,-4+by); ctx.rotate(ang);
     ctx.strokeStyle=OUTLINE; ctx.lineWidth=big?8.5:6; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,len); ctx.stroke();
-    ctx.strokeStyle=big?(front?L.skin:L.skinS):(front?L.out:L.outS); ctx.lineWidth=big?6.5:4; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,len); ctx.stroke();   // Trovão de regata: braço à mostra
+    ctx.strokeStyle=big?(front?L.skin:L.skinS):id===9?(front?'#2f48b0':'#1c2a72'):(front?L.out:L.outS); ctx.lineWidth=big?6.5:4; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,len); ctx.stroke();   // Trovão de regata: braço à mostra; Walker: asa azul
+    if(id===9){ ctx.strokeStyle='#ffc23a'; ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(0,len*.45); ctx.lineTo(0,len*.8); ctx.stroke(); }   // faixa amarela da asa
     if(id===4){ ctx.strokeStyle='#fff'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(0,5); ctx.lineTo(0,6.4); ctx.stroke(); }   // listra branca da jaqueta
-    blob(0,len+1.5,big?3:2.4,big?3:2.4,id===1?'#e8453c':L.skin,true); ctx.restore(); };
+    if(id===9){ ctx.fillStyle='#ff8a1e'; ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(-2.6,len-1); ctx.lineTo(0,len+5); ctx.lineTo(2.6,len-1); ctx.closePath(); ctx.fill(); ctx.stroke(); }   // pontas de pena laranja
+    else blob(0,len+1.5,big?3:2.4,big?3:2.4,id===1?'#e8453c':L.skin,true); ctx.restore(); };
   const cheer=!side&&!back?CHEER:0, lerp=(a,b)=>a+(b-a)*cheer;   // tela final: levanta a taça com os dois braços
   if(side) arm(-1,-swing*1.4,false);               // braço de trás
   // tronco com a roupa de cada um
@@ -2470,12 +2475,20 @@ function drawHuman(id,fx,fy,bob,step,feet,moving,gear){
   if(id===6){ ctx.fillStyle='#ffe0ef'; for(let k=-tw/2+2;k<tw/2;k+=3.5){ ctx.beginPath(); ctx.arc(k,-6.5+by,1.6,0,Math.PI); ctx.fill(); } ctx.fillStyle='rgba(255,255,255,.5)'; for(const [x,y] of [[-4,0],[3,2],[-1,4],[5,-2]]){ ctx.beginPath(); ctx.arc(x,y+by,1,0,7); ctx.fill(); } }   // babado e bolinhas
   if(id===7){ ctx.fillStyle=L.skin; if(!back){ ctx.beginPath(); ctx.moveTo(-5,-7+by); ctx.quadraticCurveTo(0,-1+by,5,-7+by); ctx.fill(); }
     if(!back&&!side){ ctx.fillStyle='#ffd23e'; ctx.strokeStyle='#8a6a10'; ctx.lineWidth=.8; ctx.beginPath(); ctx.moveTo(1,-3+by); ctx.lineTo(-2.5,1.5+by); ctx.lineTo(0,1.5+by); ctx.lineTo(-1.5,5.5+by); ctx.lineTo(2.8,0+by); ctx.lineTo(.4,0+by); ctx.closePath(); ctx.fill(); ctx.stroke(); } }   // decote da regata e raio
+  if(id===9){ if(!back){ ctx.fillStyle='#f4ecc8'; if(side) ctx.fillRect(2,-7+by,3,12); else { ctx.beginPath(); ctx.moveTo(-3.5,-7+by); ctx.lineTo(3.5,-7+by); ctx.lineTo(1.6,7+by); ctx.lineTo(-1.6,7+by); ctx.closePath(); ctx.fill(); } }   // camisa creme no meio do colete
+      ctx.fillStyle='#137f76'; ctx.strokeStyle='rgba(18,15,38,.6)'; ctx.lineWidth=.8;
+      for(const x of (back?[]:side?[-3]:[-6.4,2.6])){ rr(x,0+by,3.8,3.4,.8); ctx.fill(); ctx.stroke(); } }   // bolsos
   if(id===8){ if(!back&&!side){ ctx.fillStyle='#27365e'; for(const sx of [-1,1]){ ctx.beginPath(); ctx.moveTo(0,-6.5+by); ctx.lineTo(sx*5,-7+by); ctx.lineTo(sx*3,-3+by); ctx.closePath(); ctx.fill(); }   // gola da camisa
       ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,-4+by); ctx.lineTo(0,7+by); ctx.stroke();
       ctx.fillStyle='#dfe6f5'; for(const y of [-2,1.5,5]){ ctx.beginPath(); ctx.arc(0,y+by,.75,0,7); ctx.fill(); } }   // botões
     else if(side){ ctx.fillStyle='#27365e'; ctx.fillRect(-tw/2,-7+by,tw,2.2); } }
   ctx.restore();
   if(!side){ arm(-ax,lerp(.15+swing,Math.PI-.2),true,8+cheer*12); arm(ax,lerp(-.15-swing,-(Math.PI-.2)),true,8+cheer*12); } else arm(1,swing*1.4,true);
+  // rabinho de penas do Walker (atrás do corpo, aparece de lado e de costas)
+  if(id===9&&(side||back)){ ctx.save(); ctx.translate(side?-5:0,5+by); for(const [a,c] of [[-.5,'#2b3f9e'],[0,'#ff8a1e'],[.5,'#2b3f9e']]){ ctx.save(); ctx.rotate(side?a+.9:a); ctx.fillStyle=c; ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.2; ctx.beginPath(); ctx.ellipse(0,5,2.2,6,0,0,7); ctx.fill(); ctx.stroke(); ctx.restore(); } ctx.restore(); }
+  // lenço do Walker
+  if(id===9){ ctx.fillStyle='#3cc48a'; ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.3; rr(-(side?5.5:7.5),-8.5+by,side?11:15,3.4,1.7); ctx.fill(); ctx.stroke();
+    if(!back){ const kx=side?4:0; ctx.beginPath(); ctx.moveTo(kx-3,-6+by); ctx.lineTo(kx+3,-6+by); ctx.lineTo(kx,-1+by); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle='#ffd23e'; ctx.beginPath(); ctx.arc(kx,-5.5+by,1,0,7); ctx.fill(); } }
   // cachecol do Gelo
   if(id===1){ ctx.fillStyle='#e8453c'; ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.4; rr(-(side?6:8.5),-8.5+by,side?12:17,4,2); ctx.fill(); ctx.stroke();
     ctx.fillStyle='#fff'; for(let k=-6;k<7;k+=4) ctx.fillRect(k,-8.5+by,1.6,4);
@@ -2505,6 +2518,9 @@ function drawHuman(id,fx,fy,bob,step,feet,moving,gear){
     blob(ox,hy-4,14,12.5,vgrad(hy-16,hy+6,'#efc463','#3a2418'),false);
     ctx.fillStyle='rgba(255,240,190,.55)'; for(const [x,y] of [[-6,-15],[1,-17.5],[7,-14],[-10,-10]]){ ctx.beginPath(); ctx.arc(x+ox,hy+y,1.3,0,7); ctx.fill(); }   // brilho dos cachos loiros
   }
+  if(id===9){ // topetinho de penas no alto da cabeça
+    const ox=side?-2:0; for(const [x,c,a] of [[-3,'#ffc23a',-.5],[0,'#3a9ee8',-.1],[3,'#ff8a1e',.35]]){ ctx.save(); ctx.translate(ox+x,hy-9); ctx.rotate(a); ctx.fillStyle=c; ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.2; ctx.beginPath(); ctx.ellipse(0,-4,1.9,5,0,0,7); ctx.fill(); ctx.stroke(); ctx.restore(); }
+    if(back) blob(ox,hy+.5,10,9.6,vgrad(hy-9,hy+10,L.skin,L.skinS),true); }   // nuca azul de costas
   if(id===7&&back){ blob(0,hy+1,10.2,10,vgrad(hy-9,hy+10,L.skin,L.skinS),true); ctx.fillStyle='rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(-3,hy-5,4,2,-.4,0,7); ctx.fill(); }   // careca de costas
   // rosto
   if(!back){
@@ -2521,6 +2537,7 @@ function drawHuman(id,fx,fy,bob,step,feet,moving,gear){
     if(id===4){ ctx.beginPath(); ctx.moveTo(fxo-fr,hy-2); ctx.quadraticCurveTo(fxo-3,hy-11,fxo+fr,hy-4); ctx.lineTo(fxo+fr,hy-7); ctx.quadraticCurveTo(fxo,hy-13,fxo-fr,hy-5); ctx.fill(); }   // franja de lado
     if(id===5){ ctx.beginPath(); ctx.ellipse(fxo+2,hy-5.5,fr,3.6,-.15,Math.PI,0); ctx.fill(); }
     if(id===6){ for(const s of (side?[1]:[-1,1])){ ctx.beginPath(); ctx.ellipse(fxo+s*5,hy-5.5,5.5,3.4,s*.35,Math.PI,0); ctx.fill(); } }   // repartido no meio
+    if(id===9){ ctx.fillStyle='#f6e7b0'; if(side){ ctx.beginPath(); ctx.ellipse(fxo+4,hy+2.5,4.6,5.6,0,0,7); ctx.fill(); } else { ctx.beginPath(); ctx.ellipse(0,hy+4,6.8,4.8,0,0,7); ctx.fill(); for(const s of [-1,1]){ ctx.beginPath(); ctx.ellipse(s*3.8,hy+.3,3.3,3.4,0,0,7); ctx.fill(); } } }   // bochecha e papo creme
     if(id===8) for(const x of (side?[-3,1,5]:[-7,-3.5,0,3.5,7])) blob(x+fxo,hy-7.6,3.1,2.7,vgrad(hy-10.5,hy-5,'#f0c86c','#b98432'),false);   // cachinhos loiros na testa
     if(id===7){ ctx.fillStyle='rgba(255,255,255,.4)'; ctx.beginPath(); ctx.ellipse(fxo-3,hy-6,4.2,2,-.4,0,7); ctx.fill();   // careca brilhando
       ctx.fillStyle=L.hair; ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.3;   // barba cheia
@@ -2529,10 +2546,20 @@ function drawHuman(id,fx,fy,bob,step,feet,moving,gear){
     // olhos (o Kaze tem olhos um pouco mais finos)
     const eh=id===4?1.6:2.3;
     const eye=(x)=>{ blob(x,hy+.5,1.7,eh,'#2a1d2e',false); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(x-.6,hy-.4,.6,0,7); ctx.fill(); };
-    if(side){ eye(fxo+4.5); ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(fxo+6,hy+5,1.6,.1,Math.PI-.4); ctx.stroke(); }
+    if(id===9){ ctx.strokeStyle='#ff8a1e'; ctx.lineWidth=1.1; for(const x of (side?[fxo+4.5]:[-3.6,3.6])){ ctx.beginPath(); ctx.arc(x,hy+.5,2.9,0,7); ctx.stroke(); } }   // anel laranja em volta do olho
+    if(side){ eye(fxo+4.5); if(id!==9){ ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(fxo+6,hy+5,1.6,.1,Math.PI-.4); ctx.stroke(); } }
     else { eye(-3.6); eye(3.6);
-      ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(0,hy+4.6,2,.2,Math.PI-.2); ctx.stroke();
-      ctx.fillStyle='rgba(255,110,130,.35)'; ctx.beginPath(); ctx.ellipse(-6.2,hy+3.6,2.2,1.3,0,0,7); ctx.ellipse(6.2,hy+3.6,2.2,1.3,0,0,7); ctx.fill(); }
+      if(id!==9){ ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(0,hy+4.6,2,.2,Math.PI-.2); ctx.stroke();
+      ctx.fillStyle='rgba(255,110,130,.35)'; ctx.beginPath(); ctx.ellipse(-6.2,hy+3.6,2.2,1.3,0,0,7); ctx.ellipse(6.2,hy+3.6,2.2,1.3,0,0,7); ctx.fill(); } }
+    if(id===9){ // bicão de tucano: amarelo, laranja e ponta preta
+      ctx.save(); ctx.strokeStyle=OUTLINE; ctx.lineWidth=1.4;
+      if(side){ ctx.translate(fxo+7,hy+2.5); const g=ctx.createLinearGradient(0,0,15,0); g.addColorStop(0,'#ffd23e'); g.addColorStop(.6,'#ff8a1e'); g.addColorStop(.82,'#ff8a1e'); g.addColorStop(.83,'#1a1a24'); g.addColorStop(1,'#1a1a24');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(-1,-4); ctx.quadraticCurveTo(11,-6,15,2.5); ctx.quadraticCurveTo(8,1.5,-1,3.4); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle='rgba(18,15,38,.55)'; ctx.lineWidth=.9; ctx.beginPath(); ctx.moveTo(0,.6); ctx.quadraticCurveTo(7,.4,13,1.8); ctx.stroke(); }
+      else { ctx.translate(0,hy+2.5); const g=ctx.createLinearGradient(0,0,0,11); g.addColorStop(0,'#ffd23e'); g.addColorStop(.6,'#ff8a1e'); g.addColorStop(.8,'#ff8a1e'); g.addColorStop(.81,'#1a1a24'); g.addColorStop(1,'#1a1a24');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(-4.4,0); ctx.quadraticCurveTo(-4,8,0,11.5); ctx.quadraticCurveTo(4,8,4.4,0); ctx.quadraticCurveTo(0,-1.5,-4.4,0); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle='rgba(18,15,38,.5)'; ctx.lineWidth=.8; ctx.beginPath(); ctx.moveTo(0,1); ctx.lineTo(0,9.5); ctx.stroke(); }
+      ctx.restore(); }
     if(id===3){ ctx.fillStyle='rgba(150,80,40,.5)'; for(const [x,y] of (side?[[5,3.5],[7,3]]:[[-6,2.6],[-5,4],[6,2.6],[5,4]])){ ctx.beginPath(); ctx.arc(x+fxo,hy+y,.6,0,7); ctx.fill(); } }   // sardas
     if(id===4){ ctx.strokeStyle='#2a2a34'; ctx.lineWidth=1.1; for(const x of (side?[fxo+4.5]:[-3.6,3.6])){ ctx.beginPath(); ctx.arc(x,hy+.5,3,0,7); ctx.stroke(); }
       if(!side){ ctx.beginPath(); ctx.moveTo(-.6,hy+.3); ctx.lineTo(.6,hy+.3); ctx.stroke(); } }   // óculos redondos
@@ -2783,7 +2810,7 @@ async function exportSprites(){
   const K=6;   // cada casa de 48 px vira 288 px
   const make=(w,h,fn)=>{ const c=document.createElement('canvas'); c.width=w*T*K; c.height=h*T*K; const saved=ctx; ctx=c.getContext('2d'); ctx.scale(K,K); try{fn();}finally{ctx=saved;} return c; };
   const P=(id,fx,fy,mount)=>({id,rx:0,ry:0,x:0,y:0,fx,fy,moving:false,anim:0,alive:true,deathT:0,mount:mount||null,jz:0,inv:false,dash:false,human:false,pc:0});
-  const NAMES=CHAR_NAMES, FILE=['brasa','gelo','broto','faisca','kaze','estrela','canela','trovao','marconis'];
+  const NAMES=CHAR_NAMES, FILE=['brasa','gelo','broto','faisca','kaze','estrela','canela','trovao','marconis','walker'];
   const DIRS4=[['frente',0,1],['costas',0,-1],['esquerda',-1,0],['direita',1,0]];
   const PETS=[['cat','gato','Gato'],['roo','canguru','Canguru'],['tank','tanque','Tanque'],['lion','leao','Leão'],['dragon','dragao','Dragão'],['toucan','tucabum','Tucabum']];
   const files=[], sheets={pers:[],pets:[],itens:[],cen:[]};
