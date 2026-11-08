@@ -62,7 +62,8 @@ if (process.env.PAVIO_EXPORT) {
 }
 
 const server = http.createServer(app);
-const io = new Server(server, { path: BASE_PATH + '/socket.io' });
+// perMessageDeflate: comprime os pacotes do jogo (o estado da arena repete muito e encolhe bastante), menos dados no celular
+const io = new Server(server, { path: BASE_PATH + '/socket.io', perMessageDeflate: { threshold: 256 } });
 
 // aceita "50", "50,00", "R$ 50", "1.250,50"
 function parseMoney(v) {

@@ -158,14 +158,14 @@ html{touch-action:manipulation}   /* sem zoom de toque duplo */
     padding:8px max(10px,env(safe-area-inset-right)) 0 max(10px,env(safe-area-inset-left))}
   .playwrap.isfs .top button,.playwrap.isfs .top .chip{pointer-events:auto}
   .playwrap.isfs #hud{flex-direction:column;align-items:flex-start;gap:4px;overflow:visible;max-width:calc(50vw - 25vh*15/13 - 14px)}
-  .playwrap.isfs .chip{background:rgba(10,8,25,.55);border-color:rgba(255,255,255,.14);font-size:12px;padding:2px 8px 2px 3px;max-width:100%;
-    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .playwrap.isfs .chip{background:rgba(10,8,25,.72);border-color:rgba(255,255,255,.14);font-size:12px;padding:2px 8px 2px 3px;max-width:100%;
+}
   .playwrap.isfs .chip b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
   .playwrap.isfs .top>.hud:last-child{flex-direction:column;align-items:flex-end;gap:6px}
   .playwrap.isfs .timer{position:absolute;left:50%;top:6px;transform:translateX(-50%);background:rgba(10,8,25,.6);border-color:rgba(255,255,255,.18);font-size:18px;pointer-events:none}
   .playwrap.isfs .timer.sd{border-color:var(--hot)}
-  .playwrap.isfs .icon-btn{width:40px;height:40px;padding:0;border-radius:50%;font-size:0;background:rgba(10,8,25,.55);border-color:rgba(255,255,255,.18);
-    display:grid;place-items:center;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+  .playwrap.isfs .icon-btn{width:40px;height:40px;padding:0;border-radius:50%;font-size:0;background:rgba(10,8,25,.7);border-color:rgba(255,255,255,.18);
+    display:grid;place-items:center}
   .playwrap.isfs .icon-btn::before{font-size:17px;line-height:1}
   .playwrap.isfs #muteBtn::before{content:'🔊'} .playwrap.isfs #muteBtn.off::before{content:'🔇'}
   .playwrap.isfs #musicBtn::before{content:'🎵'} .playwrap.isfs #musicBtn.off{opacity:.45}
@@ -176,11 +176,11 @@ html{touch-action:manipulation}   /* sem zoom de toque duplo */
   .playwrap.isfs .pad{display:block;position:absolute;inset:0;z-index:2;pointer-events:none}
   .playwrap.isfs .joy{position:absolute;left:0;bottom:0;top:28%;width:44%;max-width:none;height:auto;pointer-events:auto}
   .playwrap.isfs .joy .jbase{width:132px;height:132px;margin:-66px 0 0 -66px;background:radial-gradient(circle,rgba(255,255,255,.05) 45%,rgba(255,255,255,.16));border-color:rgba(255,255,255,.28)}
-  .playwrap.isfs .joy .jknob{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .playwrap.isfs .joy .jknob{background:rgba(255,255,255,.22);border-color:rgba(255,255,255,.55)}
   .playwrap.isfs .joy:not(.on) .jbase{opacity:.75}
   .playwrap.isfs .acts{position:absolute;right:max(18px,env(safe-area-inset-right));bottom:16px;display:flex;align-items:flex-end;gap:14px;pointer-events:auto}
   .playwrap.isfs .bombbtn,.playwrap.isfs .petbtn{display:grid;place-items:center;align-content:center;gap:2px;color:#fff;font-size:10px;letter-spacing:.06em;
-    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+}
   .playwrap.isfs .bombbtn{width:100px;height:100px;background:rgba(255,90,60,.5);border:3px solid rgba(255,255,255,.4)}
   .playwrap.isfs .bombbtn::before{content:'💣';font-size:34px;line-height:1}
   .playwrap.isfs .petbtn{width:66px;height:66px;margin-bottom:70px;background:rgba(10,8,25,.5);border:3px solid rgba(255,178,62,.7);color:var(--fuse)}
@@ -1458,7 +1458,7 @@ socket.on('state',sn=>{
   if(sn.train){ const old=S.train; S.train=sn.train; S.train.rx=old&&old.s==='run'&&sn.train.s==='run'&&Math.abs(old.rx-sn.train.x)<2?old.rx:sn.train.x; } else S.train=null;
   if(sn.sd&&!S.sd&&S.ready){ sfx('alarm'); musicUpdate(); }   // começou a fechar: sirene e troca de música na hora
   S.state=sn.s; S.timer=sn.timer; S.sd=sn.sd; S.cd=sn.cd; S.banner=sn.banner; S.target=sn.target;
-  for(let i=0;i<N;i++)S.grid[i]=sn.grid.charCodeAt(i)-48;
+  for(let i=0;i<N;i++)S.grid[i]=sn.grid.charCodeAt(i)-48; S.gridStr=sn.grid;
   S.pu.fill(null); for(const [i,t] of sn.pu)S.pu[i]=t;
   const prevFl=S.flame.map(f=>f>0?1:0);
   S.flame.fill(0); S.fdir.fill(0); for(const [i,d,f] of sn.fl){S.flame[i]=f;S.fdir[i]=d;}
@@ -1475,7 +1475,13 @@ socket.on('state',sn=>{
   S.breaking=sn.brk.map(([i,t])=>({i,t}));
   S.drops=sn.drops.map(([c,t])=>({c,t}));
   const newRound=sn.ev.some(e=>e[0]==='round'); if(newRound){ S.scorch=[]; S.parts=[]; }
-  S.players=sn.players.map(sp=>{ let p=S.pmap[sp.id]; if(!p||newRound||!S.ready){p={rx:sp.x,ry:sp.y,anim:0};S.pmap[sp.id]=p;} return Object.assign(p,sp); });
+  const nowMs=performance.now();
+  S.players=sn.players.map(sp=>{ let p=S.pmap[sp.id]; if(!p||newRound||!S.ready){p={rx:sp.x,ry:sp.y,anim:0};S.pmap[sp.id]=p;}
+    const px=p.x, py=p.y, pt=p.at; Object.assign(p,sp); p.at=nowMs;
+    // velocidade entre os 2 últimos pacotes: se o próximo atrasar, o boneco continua um pouquinho em vez de parar e dar um pulo
+    const dts=pt?(nowMs-pt)/1000:0;
+    if(dts>.005&&dts<.25&&px!=null){ const vx=(p.x-px)/dts, vy=(p.y-py)/dts; p.vx=Math.abs(vx)<7?vx:0; p.vy=Math.abs(vy)<7?vy:0; } else { p.vx=0; p.vy=0; }
+    return p; });
   for(const e of sn.ev){
     if(e[0]==='pick')S.fx.push({x:e[1],y:e[2],text:e[4],color:PU[e[3]],t:.9});
     if(e[0]==='petburn')S.fx.push({x:e[1],y:e[2],text:'PET QUEIMOU!',color:'#ff8a73',t:1.1});
@@ -1508,11 +1514,12 @@ cvs.width=COLS*T*DPR; cvs.height=ROWS*T*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
 const idx=(x,y)=>y*COLS+x;
 function rr(x,y,w,h,r){ctx.beginPath(); if(ctx.roundRect)ctx.roundRect(x,y,w,h,r); else ctx.rect(x,y,w,h);}
 /* ---------- arte em imagem (public/sprites). Se alguma não carregar, usa o desenho antigo. ---------- */
-const SPR={};
+const SPR={}; let SPR_N=0;   // SPR_N: quantas imagens já carregaram (refaz o fundo guardado quando chega mais uma)
+const BG={cv:null,key:''};   // fundo guardado (chão, paredes e caixotes)
 for(const n of ['padrao-chao','padrao-parede','padrao-caixote','fogo-chao','fogo-parede','fogo-caixote','fogo-vulcao',
   'agua-chao','agua-parede','agua-caixote','agua-cachoeira','item-bomb','item-fire','item-speed','item-kick','item-pet','bomba',
   'pet-cat-lado','pet-cat-frente','pet-roo-lado','pet-roo-frente','pet-tank-lado','pet-tank-frente']){
-  const im=new Image(); im.src=BASE+'sprites/'+n+'.png'; SPR[n]=im; }
+  const im=new Image(); im.onload=()=>{ SPR_N++; }; im.src=BASE+'sprites/'+n+'.png'; SPR[n]=im; }
 const spr=n=>{ const im=SPR[n]; return im&&im.complete&&im.naturalWidth?im:null; };
 // desenha a imagem com a base apoiada em (cx, baseY), cabendo em w de largura
 function drawSpr(im,cx,baseY,w,flip){
@@ -2728,21 +2735,34 @@ function render(){
   if(!S.ready){ for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){ctx.fillStyle=((x+y)&1)?'#2b2753':'#302c5c';ctx.fillRect(x*T,y*T,T,T);} return; }
   const water=S.stage==='agua', isRiver=(x,y)=>water&&RIVER_X.includes(x)&&y>0&&y<ROWS-1;
   const trem=S.stage==='trem';
-  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){ if(isRiver(x,y))drawRiverCell(x,y); else if(trem&&S.trackMap&&S.trackMap.has(idx(x,y))&&!S.trackMap.get(idx(x,y)).end)drawTrackCell(x,y,S.trackMap.get(idx(x,y))); else drawFloorCell(x,y); }
-  ctx.fillStyle='rgba(0,0,0,.18)';
-  for(let y=1;y<ROWS;y++)for(let x=0;x<COLS;x++) if(S.grid[idx(x,y-1)]===1&&S.grid[idx(x,y)]!==1)ctx.fillRect(x*T,y*T,T,7);
   const volcAt={}; for(const v of S.volc)volcAt[v[0]+','+v[1]]=v[2];
   const dropping=new Set(S.drops.filter(d=>d.t>.02).map(d=>d.c));
-  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
-    const g=S.grid[idx(x,y)];
-    if(g===1&&dropping.has(idx(x,y)))continue;   // bloco ainda caindo: é desenhado depois, por cima
-    if(g===1){ const vk=volcAt[x+','+y];
-      if(vk!==undefined)drawVolcano(x,y,vk);
-      else if(water&&y===0&&RIVER_X.includes(x))drawWaterfall(x,y);
-      else if(trem&&S.trackMap&&S.trackMap.has(idx(x,y))&&S.trackMap.get(idx(x,y)).end)drawTunnel(x,y,S.trackMap.get(idx(x,y)));
-      else drawWall(x*T,y*T); }
-    else if(g===2)drawCrate(x*T,y*T,1,1);
+  const isTrack=(x,y)=>trem&&S.trackMap&&S.trackMap.has(idx(x,y)), track=(x,y)=>isTrack(x,y)&&!S.trackMap.get(idx(x,y)).end, tunnel=(x,y)=>isTrack(x,y)&&S.trackMap.get(idx(x,y)).end;
+  const liveCell=(x,y)=>isRiver(x,y)||track(x,y);   // chão animado: desenhado a cada quadro
+  const specialWall=(x,y)=>volcAt[x+','+y]!==undefined||(water&&y===0&&RIVER_X.includes(x))||tunnel(x,y);
+  // fundo guardado: chão, sombras, paredes comuns e caixotes quase nunca mudam. Desenha uma vez e só refaz quando o mapa muda
+  // (antes eram ~200 quadrados redesenhados 60 vezes por segundo)
+  const bgAnim=S.stage==='mar'||S.stage==='ceu'||S.stage==='trem';   // reflexos, estrelinhas e relógios: refaz o fundo 10x por segundo
+  const bgKey=S.stage+'|'+S.gridStr+'|'+SPR_N+'|'+cvs.width+'|'+(bgAnim?Math.floor(S.time*10):0)+'|'+(S.trackMap?S.trackMap.size:0)+'|'+[...dropping].join(',')+'|'+Object.keys(volcAt).join(';');
+  if(bgKey!==BG.key){ BG.key=bgKey;
+    if(!BG.cv) BG.cv=document.createElement('canvas');
+    if(BG.cv.width!==cvs.width||BG.cv.height!==cvs.height){ BG.cv.width=cvs.width; BG.cv.height=cvs.height; }
+    const saved=ctx; ctx=BG.cv.getContext('2d'); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,BG.cv.width,BG.cv.height); ctx.setTransform(DPR,0,0,DPR,0,0);
+    try{
+      for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(!liveCell(x,y)) drawFloorCell(x,y);
+      ctx.fillStyle='rgba(0,0,0,.18)';
+      for(let y=1;y<ROWS;y++)for(let x=0;x<COLS;x++) if(!liveCell(x,y)&&S.grid[idx(x,y-1)]===1&&S.grid[idx(x,y)]!==1)ctx.fillRect(x*T,y*T,T,7);
+      for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){ const g=S.grid[idx(x,y)];
+        if(g===1){ if(!dropping.has(idx(x,y))&&!specialWall(x,y)) drawWall(x*T,y*T); }   // bloco ainda caindo: é desenhado depois, por cima
+        else if(g===2) drawCrate(x*T,y*T,1,1); }
+    } finally { ctx=saved; }
   }
+  ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.drawImage(BG.cv,0,0); ctx.restore();
+  // por cima: o que é animado (rio, trilho e suas sombras; vulcão, cachoeira e túnel)
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(liveCell(x,y)){ if(isRiver(x,y))drawRiverCell(x,y); else drawTrackCell(x,y,S.trackMap.get(idx(x,y)));
+    if(y>0&&S.grid[idx(x,y-1)]===1&&S.grid[idx(x,y)]!==1){ ctx.fillStyle='rgba(0,0,0,.18)'; ctx.fillRect(x*T,y*T,T,7); } }
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) if(S.grid[idx(x,y)]===1&&!dropping.has(idx(x,y))&&specialWall(x,y)){ const vk=volcAt[x+','+y];
+    if(vk!==undefined)drawVolcano(x,y,vk); else if(water&&y===0&&RIVER_X.includes(x))drawWaterfall(x,y); else drawTunnel(x,y,S.trackMap.get(idx(x,y))); }
   for(const v of S.volc)drawVolcanoWarn(v[0],v[1],v[2]);
   drawWhaleWarn(); drawCracks();
   for(const k of S.breaking){const x=k.i%COLS,y=(k.i/COLS)|0,a=Math.max(0,k.t/.55);drawCrate(x*T,y*T,.6+.4*a,a);}
@@ -2794,7 +2814,12 @@ function frame(now){
   if(S.tornado&&S.tornado.rx!=null){ const k=Math.min(1,dt*10); S.tornado.rx+=(S.tornado.x-S.tornado.rx)*k; S.tornado.ry+=(S.tornado.y-S.tornado.ry)*k; }
   if(S.train){ S.train.rx+=(S.train.x-S.train.rx)*Math.min(1,dt*20);
     if(S.train.s==='run'&&!$('play').hidden){ S.chug=(S.chug||0)+dt; if(S.chug>.13){ S.chug=0; if(!muted&&AC){ try{ noise(.07,700,.12); }catch(e){} } } } }   // tchu-tchu do trem
-  for(const p of S.players){ const k=Math.min(1,dt*20); if(Math.abs(p.x-p.rx)+Math.abs(p.y-p.ry)>1.5){p.rx=p.x;p.ry=p.y;} else {p.rx+=(p.x-p.rx)*k;p.ry+=(p.y-p.ry)*k;} if(p.moving)p.anim+=dt; }
+  for(const p of S.players){ const k=Math.min(1,dt*20);
+    let tx=p.x, ty=p.y;
+    if(p.moving&&p.alive&&(p.vx||p.vy)&&p.at){ const ahead=Math.min(.06,Math.max(0,(now-p.at)/1000));   // previsão curta (até 60 ms) na direção em que ia
+      const ex=p.x+p.vx*ahead, ey=p.y+p.vy*ahead, cx=Math.round(ex), cy=Math.round(ey);
+      if(cx>=0&&cy>=0&&cx<COLS&&cy<ROWS&&S.grid[idx(cx,cy)]===0){ tx=ex; ty=ey; } }   // nunca prevê para dentro de parede ou caixote
+    if(Math.abs(tx-p.rx)+Math.abs(ty-p.ry)>1.5){p.rx=tx;p.ry=ty;} else {p.rx+=(tx-p.rx)*k;p.ry+=(ty-p.ry)*k;} if(p.moving)p.anim+=dt; }
   for(const f of S.fx)f.t-=dt; S.fx=S.fx.filter(f=>f.t>0); stepParts(dt);
   for(const k in S.emotes){ S.emotes[k].t-=dt; if(S.emotes[k].t<=0)delete S.emotes[k]; }
   if(!$('play').hidden){ render(); updateTimer(); }
