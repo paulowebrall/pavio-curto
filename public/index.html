@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Pavio Curto Online</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -98,11 +98,18 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--fuse);outline-o
 canvas{display:block;width:100%;height:100%}
 .help{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;color:var(--muted);font-size:13px}
 kbd{font:500 12px var(--body);background:var(--panel);border:1px solid var(--line);border-bottom-width:3px;border-radius:5px;padding:1px 6px;color:var(--ink)}
+html{touch-action:manipulation}   /* sem zoom de toque duplo */
+.playwrap,.playwrap .stage,.pad,.pad *,.acts button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+.pad,.pad *,.playwrap .stage{touch-action:none}
 .pad{display:none;justify-content:space-between;align-items:center;gap:16px;touch-action:none}
 @media (pointer:coarse){.pad{display:flex}.help{display:none}}
 .joy{position:relative;flex:1;max-width:240px;height:170px;touch-action:none;user-select:none;-webkit-user-select:none}
 .joy .jbase{position:absolute;left:0;top:0;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.04) 40%,rgba(255,255,255,.12));border:2px solid var(--line);pointer-events:none;transition:opacity .15s}
-.joy .jknob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:var(--panel);border:2px solid var(--fuse);box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none}
+.joy .jknob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:var(--panel);border:2px solid var(--fuse);box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;
+  transition:transform .18s cubic-bezier(.2,1.6,.4,1);will-change:transform}
+.joy.on .jknob{transition:none}
+.joy .jbase{transition:opacity .15s,left .2s ease-out,top .2s ease-out}
+.joy.on .jbase{transition:opacity .15s}
 .joy:not(.on) .jbase{opacity:.55}
 .joy .jarr{position:absolute;inset:0;pointer-events:none;color:var(--muted);font-size:11px}
 .joy .jarr i{position:absolute;font-style:normal}
@@ -1149,12 +1156,16 @@ function stopVideo(save){ if(!REC)return; REC.save=save; $('repRec').hidden=true
 
 /* ---------- entrada ---------- */
 const KEYS={KeyW:'u',KeyA:'l',KeyS:'d',KeyD:'r',ArrowUp:'u',ArrowLeft:'l',ArrowDown:'d',ArrowRight:'r'};
-const held=[]; let touchDir=null, sentDir=null;
+const held=[]; let touchDir=null, touchAlt=null, sentDir=null, sentAlt=null;
 const inGame=()=>!$('play').hidden&&$('overMenu').hidden;
 function curDir(){ return touchDir||held[held.length-1]||null; }
-function sendDir(){ const d=curDir(); if(d!==sentDir){ sentDir=d; socket.emit('input',{dir:d}); } }
-function bomb(){ socket.emit('input',{dir:curDir(),bomb:true}); }
-function pet(){ socket.emit('input',{dir:curDir(),pet:true}); }
+// segunda direção (diagonal): no analógico vem do ângulo do dedo; no teclado, de uma tecla perpendicular ainda apertada
+const HORIZ=d=>d==='l'||d==='r';
+function curAlt(){ const d=curDir(); if(!d)return null; if(touchDir)return touchAlt;
+  for(let i=held.length-1;i>=0;i--) if(HORIZ(held[i])!==HORIZ(d))return held[i]; return null; }
+function sendDir(){ const d=curDir(), a=curAlt(); if(d!==sentDir||a!==sentAlt){ sentDir=d; sentAlt=a; socket.emit('input',{dir:d,alt:a}); } }
+function bomb(){ socket.emit('input',{dir:curDir(),alt:curAlt(),bomb:true}); }
+function pet(){ socket.emit('input',{dir:curDir(),alt:curAlt(),pet:true}); }
 const PET_KEYS=['KeyE','KeyQ','ShiftLeft','ShiftRight'];
 addEventListener('keydown',e=>{
   if(!inGame()||SPECTATOR)return;
@@ -1165,21 +1176,25 @@ addEventListener('keydown',e=>{
   else if(EMOTE_KEYS[e.code]){ e.preventDefault(); if(!e.repeat)sendEmote(EMOTE_KEYS[e.code]); }
 });
 addEventListener('keyup',e=>{ const d=KEYS[e.code]; if(!d)return; const i=held.indexOf(d); if(i>=0)held.splice(i,1); sendDir(); });
-addEventListener('blur',()=>{ held.length=0; touchDir=null; sendDir(); });
+addEventListener('blur',()=>{ held.length=0; touchDir=null; touchAlt=null; sendDir(); });
 // analógico flutuante: encosta o dedo em qualquer lugar da área e arrasta; muda de direção sem tirar o dedo.
 // Só 4 direções (grade). Zona morta pequena e "histerese" para não ficar trocando na diagonal.
 (()=>{ const zone=$('joy'), base=$('jbase'), knob=$('jknob'), arr=base.querySelectorAll('.jarr i');
-  const R=46, DEAD=12; let pid=null, cx=0, cy=0;
+  const R=52, DEAD=9; let pid=null, cx=0, cy=0;
   function rest(){ const w=zone.clientWidth||200, h=zone.clientHeight||170; cx=Math.min(w/2,100); cy=h>230?h-Math.max(90,h*.32):h/2; place(0,0); }
   function place(dx,dy){ base.style.left=cx+'px'; base.style.top=cy+'px'; knob.style.transform=`translate(${dx}px,${dy}px)`; }
-  function setDir(d){ if(d!==touchDir){ touchDir=d; arr.forEach(a=>a.classList.toggle('act',a.classList.contains(d))); if(d&&navigator.vibrate)try{navigator.vibrate(6);}catch(_){} sendDir(); } }
+  function setDir(d,alt){ alt=d?alt||null:null;
+    if(d!==touchDir){ touchDir=d; touchAlt=alt; arr.forEach(a=>a.classList.toggle('act',a.classList.contains(d))); if(d&&navigator.vibrate)try{navigator.vibrate(6);}catch(_){} sendDir(); }
+    else if(alt!==touchAlt){ touchAlt=alt; sendDir(); } }
   function move(e){ const r=zone.getBoundingClientRect(); let x=e.clientX-r.left, y=e.clientY-r.top, dx=x-cx, dy=y-cy, dist=Math.hypot(dx,dy);
     if(dist>R){ const k=(dist-R)/dist; cx+=dx*k; cy+=dy*k; dx=x-cx; dy=y-cy; dist=R; }   // base acompanha o dedo: voltar é rápido
     place(dx,dy);
     if(dist<DEAD){ setDir(null); return; }
     const ax=Math.abs(dx), ay=Math.abs(dy), cur=touchDir, horiz=cur==='l'||cur==='r', vert=cur==='u'||cur==='d';
     let h=ax>ay; if(horiz&&ay<ax*1.25)h=true; else if(vert&&ax<ay*1.25)h=false;   // segura o eixo atual perto da diagonal
-    setDir(h?(dx<0?'l':'r'):(dy<0?'u':'d')); }
+    const minor=h?ay:ax, major=h?ax:ay;   // dedo na diagonal: manda também a outra direção (o jogo usa se a principal estiver bloqueada)
+    const alt=minor>major*.42&&minor>DEAD*.8?(h?(dy<0?'u':'d'):(dx<0?'l':'r')):null;
+    setDir(h?(dx<0?'l':'r'):(dy<0?'u':'d'),alt); }
   zone.addEventListener('pointerdown',e=>{ if(pid!==null)return; e.preventDefault(); pid=e.pointerId; try{zone.setPointerCapture(pid);}catch(_){}
     const r=zone.getBoundingClientRect(); cx=e.clientX-r.left; cy=e.clientY-r.top; zone.classList.add('on'); place(0,0); });
   zone.addEventListener('pointermove',e=>{ if(e.pointerId===pid){ e.preventDefault(); move(e); } });
@@ -1188,6 +1203,11 @@ addEventListener('blur',()=>{ held.length=0; touchDir=null; sendDir(); });
   addEventListener('resize',()=>{ if(pid===null)rest(); }); rest(); requestAnimationFrame(rest);
 })();
 $('bombBtn').addEventListener('pointerdown',e=>{ e.preventDefault(); if(inGame())bomb(); });
+// sem zoom no jogo: toque duplo nos botões, pinça (iPhone) e duplo clique
+for(const id of ['bombBtn','petBtn','joy']) $(id).addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+document.addEventListener('gesturestart',e=>{ if(!$('play').hidden)e.preventDefault(); });
+document.addEventListener('touchmove',e=>{ if(!$('play').hidden&&e.touches.length>1)e.preventDefault(); },{passive:false});
+$('play').addEventListener('dblclick',e=>e.preventDefault());
 $('petBtn').addEventListener('pointerdown',e=>{ e.preventDefault(); if(inGame())pet(); });
 
 /* ---------- som ---------- */

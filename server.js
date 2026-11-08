@@ -704,9 +704,9 @@ io.on('connection', socket => {
   socket.on('input', input => {
     const r = rooms.get(socket.data.room);
     if (r && r.game && input && typeof input === 'object') {
-      const inp = { dir: ['u', 'd', 'l', 'r'].includes(input.dir) ? input.dir : null, bomb: !!input.bomb, pet: !!input.pet };
+      const inp = { dir: ['u', 'd', 'l', 'r'].includes(input.dir) ? input.dir : null, alt: ['u', 'd', 'l', 'r'].includes(input.alt) ? input.alt : null, bomb: !!input.bomb, pet: !!input.pet };
       r.game.setInput(socket.id, inp);
-      if (r.rec && socket.id in r.rec.slot && r.rec.ev.length < 300000) r.rec.ev.push([r.game.ticks, r.rec.slot[socket.id], inp.dir || '', inp.bomb ? 1 : 0, inp.pet ? 1 : 0]);
+      if (r.rec && socket.id in r.rec.slot && r.rec.ev.length < 300000) r.rec.ev.push([r.game.ticks, r.rec.slot[socket.id], inp.dir || '', inp.bomb ? 1 : 0, inp.pet ? 1 : 0, inp.alt || '']);
     }
   });
 
@@ -754,7 +754,7 @@ io.on('connection', socket => {
         while (rp.k < rp.ev.length && rp.ev[rp.k][0] <= g.ticks) {   // aplica os comandos gravados neste passo
           const e = rp.ev[rp.k++];
           if (e[2] === 'saiu') g.dropHuman('r' + e[1]);
-          else g.setInput('r' + e[1], { dir: e[2] || null, bomb: !!e[3], pet: !!e[4] });
+          else g.setInput('r' + e[1], { dir: e[2] || null, alt: e[5] || null, bomb: !!e[3], pet: !!e[4] });
         }
         g.update(STEP);
       }

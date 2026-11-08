@@ -16,7 +16,7 @@ const SPEED0 = 3.4 * 2 / 3, SPEED_STEP = .55 * 2 / 3, SPEED_MAX = 6.2 * 2 / 3;
 const KICK_STEP = .14;          // bomba chutada anda 1 casa a cada 0,14 s (metade da velocidade antiga)
 // Pets: tempo de recarga da habilidade (s)
 const PET_CD = { cat: 3, roo: 1, tank: .6, lion: 7, dragon: 4 };
-const RULES_NOW = 4;   // 3 = bots usam bem os poderes dos pets; 4 = poder do pet não atravessa bomba
+const RULES_NOW = 5;   // 3 = bots usam bem os poderes dos pets; 4 = poder do pet não atravessa bomba; 5 = diagonal inteligente e esquina tolerante para jogadores
 const PETS = ['cat', 'roo', 'tank', 'lion', 'dragon'];
 // Leão: escudo com cara de leão que segura o fogo por um tempo. Dragão: cospe fogo 3 casas e deixa quem pegar atordoado
 const LION_TIME = 2.5, BREATH_LEN = 3, BREATH_SHOW = .5, STUN_TIME = 2;
@@ -246,20 +246,27 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
     if (!inB(x, y) || G.grid[idx(x, y)] !== 0) return false;
     const b = bombAt(x, y); return !(b && !b.pass.has(p));
   }
+  // anda num eixo; devolve true se o jogador saiu do lugar
   function axisMove(p, dx, dy, d) {
     const along = dx ? 'x' : 'y', perp = dx ? 'y' : 'x', dir = dx || dy;
     const cp = Math.round(p[perp]), off = p[perp] - cp, ca = Math.round(p[along]);
     const ax = dx ? ca + dx : cp, ay = dx ? cp : ca + dy;
+    const x0 = p.x, y0 = p.y;
     if (Math.abs(off) > .02) {
       if (passable(ax, ay, p)) { const s = Math.min(Math.abs(off), d); p[perp] -= Math.sign(off) * s; if (Math.abs(p[perp] - cp) <= .02) p[perp] = cp; }
-      return;
+      else if (RULES >= 5 && p.human && Math.abs(off) >= .3) {   // esquina tolerante: quase alinhado com o corredor do outro lado, escorrega para ele
+        const c2 = cp + Math.sign(off), bx = dx ? ca + dx : c2, by = dx ? c2 : ca + dy;
+        if (passable(bx, by, p) && passable(dx ? ca : c2, dx ? c2 : ca, p)) { const s = Math.min(Math.abs(c2 - p[perp]), d); p[perp] += Math.sign(off) * s; if (Math.abs(p[perp] - c2) <= .02) p[perp] = c2; }
+      }
+      return p.x !== x0 || p.y !== y0;
     }
     p[perp] = cp;
     const nv = p[along] + dir * d;
-    if (passable(ax, ay, p)) { p[along] = nv; return; }
+    if (passable(ax, ay, p)) { p[along] = nv; return true; }
     const b = bombAt(ax, ay);
     if (b && p.kick && !b.slide && Math.abs(p[along] - ca) < .3) { b.slide = { dx, dy, acc: 0 }; G.ev.push(['kick']); }
     p[along] = dir > 0 ? Math.min(nv, Math.max(p[along], ca)) : Math.max(nv, Math.min(p[along], ca));
+    return p.x !== x0 || p.y !== y0;
   }
   function placeBomb(p) { return placeBombAt(p, Math.round(p.x), Math.round(p.y)); }
   function placeBombAt(p, x, y) {
@@ -653,7 +660,8 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
       if (p.human) {
         const d = DIRS[p.input.dir];
         const spd = p.speed * (p.dashT > 0 ? DASH_MULT : 1);
-        if (d) { p.face = d; axisMove(p, d.x, d.y, spd * dt); p.moving = true; } else p.moving = false;
+        const alt = RULES >= 5 ? DIRS[p.input.alt] : null;   // diagonal: se a direção principal está bloqueada, anda pela outra
+        if (d) { if (axisMove(p, d.x, d.y, spd * dt) || !alt) p.face = d; else if (axisMove(p, alt.x, alt.y, spd * dt)) p.face = alt; else p.face = d; p.moving = true; } else p.moving = false;
         if (p.input.bomb) { p.input.bomb = false; if (!gloveAction(p)) placeBomb(p); }   // com luvinha: arremessa a bomba se tiver uma em cima/à frente
         if (p.input.pet) { p.input.pet = false; if (!tryBoard(p)) usePet(p); }   // E: embarca no trem se estiver passando do lado; senão, usa o pet
       } else botUpdate(p, dt);
@@ -817,6 +825,8 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
   function setInput(sid, input) {
     const p = G.players.find(q => q.sid === sid && q.human); if (!p) return;
     if (input.dir === null || DIRS[input.dir]) p.input.dir = input.dir;
+    const a = DIRS[input.alt], d = DIRS[p.input.dir];   // segunda direção (diagonal): só vale se for perpendicular à principal
+    p.input.alt = a && d && (a.x !== 0) !== (d.x !== 0) ? input.alt : null;
     if (input.bomb) p.input.bomb = true;
     if (input.pet) p.input.pet = true;
   }
