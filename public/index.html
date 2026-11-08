@@ -921,6 +921,12 @@ $('donBtn').onclick=async()=>{
       $('pixCopy').onclick=()=>navigator.clipboard.writeText(r.qr).then(()=>toast('Código copiado'),()=>toast('Selecione o código e copie'));
       clearInterval(donPoll); donPoll=setInterval(async()=>{ const mine=await api('/api/donations/mine').catch(()=>[]); const d=mine.find(x=>x.id===r.donation.id);
         if(d&&d.status!=='pendente'){ clearInterval(donPoll); box.innerHTML=d.status==='confirmada'?'<b>Pagamento confirmado. Obrigado pelo apoio! ★</b>':'<b>O pagamento não foi concluído.</b>'; loadMyDonations(); } },5000);
+    } else if(r.qr){   // Pix copia e cola com o valor: paga direto pelo app do banco
+      box.innerHTML='<b>Pague '+money(r.donation.amountCents)+' com Pix</b><span class="sub">Abra o app do seu banco, escolha Pix e aponte a câmera para o QR Code:</span>'+
+        (r.qrImg?'<img alt="QR Code do Pix" src="data:image/png;base64,'+r.qrImg+'">':'')+
+        '<span class="sub">No celular? Copie o código e cole no app do banco em Pix copia e cola:</span><code id="pixCode">'+esc(r.qr)+'</code><button class="go sm" type="button" id="pixCopy">Copiar código Pix</button>'+
+        '<span class="sub">Chave: '+esc(r.pixKey)+'. Depois de pagar, o organizador confirma e seu selo de apoiador aparece.</span>';
+      $('pixCopy').onclick=()=>navigator.clipboard.writeText(r.qr).then(()=>toast('Código Pix copiado. Cole no app do banco'),()=>toast('Selecione o código e copie'));
     } else {
       box.innerHTML='<b>Envie '+money(r.donation.amountCents)+' por Pix para a chave:</b>'+(r.pixKey?'<code>'+esc(r.pixKey)+'</code><button class="ghost" type="button" id="pixCopy">Copiar chave</button>':'<span class="sub">O organizador ainda não cadastrou a chave Pix. Fale com ele.</span>')+
         '<span class="sub">Depois de enviar, o organizador confirma sua doação e seu selo de apoiador aparece.</span>';

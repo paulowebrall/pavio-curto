@@ -24,6 +24,8 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const DEV_LOGIN = process.env.DEV_LOGIN === '1';
 const ADMINS = (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 const PIX_KEY = process.env.PIX_KEY || '';
+const PIX_NAME = process.env.PIX_NAME || 'Pavio Curto', PIX_CITY = process.env.PIX_CITY || 'Brasil';   // aparecem no QR Code do Pix
+const { pixQr } = require('./pix');
 const TICK = 1000 / 60, STEP = 1 / 60, SEND_EVERY = 2, MAX_PLAYERS = 4;
 
 // Pontos do ranking
@@ -388,7 +390,10 @@ app.post('/api/donations', auth, needNick, async (req, res) => {
     } catch (e) { return res.status(502).json({ error: 'Não consegui gerar o Pix agora: ' + e.message }); }
   }
   db.donations[d.id] = d; save();
-  res.json({ donation: dPub(d), mode: 'manual', pixKey: PIX_KEY });
+  // modo manual: gera o QR Code e o Pix copia e cola já com o valor (o identificador do apoio vai junto e aparece no seu extrato)
+  let qr = '', qrImg = '';
+  if (PIX_KEY) { try { const q = await pixQr({ key: PIX_KEY, name: PIX_NAME, city: PIX_CITY, amountCents, txid: 'PC' + d.id }); qr = q.code; qrImg = q.img; } catch (e) {} }
+  res.json({ donation: dPub(d), mode: 'manual', pixKey: PIX_KEY, qr, qrImg });
 });
 app.get('/api/donations/mine', auth, (req, res) => res.json(Object.values(db.donations).filter(d => d.uid === req.user.uid).sort((a, b) => b.createdAt - a.createdAt).slice(0, 20).map(dPub)));
 app.get('/api/admin/donations', auth, admin, (req, res) => res.json(Object.values(db.donations).sort((a, b) => b.createdAt - a.createdAt).slice(0, 100).map(dPub)));
