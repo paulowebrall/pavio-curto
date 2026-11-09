@@ -71,6 +71,11 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--fuse);outline-o
 .rcard .rtag{font-size:11px;padding:1px 6px;border-radius:999px;border:1px solid var(--line);color:var(--muted);flex-shrink:0}
 .rcard .rtag.wait{color:#5fd38a;border-color:#2f7a4c}
 .rcard .rtag.live{color:var(--hot);border-color:var(--hot)}
+.rcard.arena{border-color:var(--hot);background:linear-gradient(90deg,rgba(255,90,60,.12),transparent 70%)}
+.rcard.arena .rtag{color:#fff;background:var(--hot);border-color:var(--hot)}
+.rbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#quickBtn small{display:block;font:600 11px var(--body);opacity:.8;letter-spacing:0}
+.go.alt{background:var(--panel);color:var(--ink);border-color:var(--fuse);box-shadow:0 4px 0 var(--line)}
 .rcard button{flex-shrink:0;padding:6px 10px;font-size:13px}
 .roomempty{font-size:13px;color:var(--muted);padding:6px 2px}
 .or::before,.or::after{content:"";flex:1;height:2px;background:var(--line)}
@@ -406,7 +411,8 @@ select{font:500 15px var(--body);background:var(--bg);color:var(--ink);border:2p
     </div>
 
     <div class="tab" id="tab-jogar">
-      <button class="go" id="createBtn" type="button">CRIAR SALA</button>
+      <button class="go" id="quickBtn" type="button">⚡ JOGAR AGORA <small>partida rápida contra bots</small></button>
+      <button class="go alt" id="createBtn" type="button">CRIAR SALA</button>
       <div class="or">ou entre numa sala</div>
       <div class="row">
         <input type="text" id="codeIn" maxlength="4" placeholder="Código (ex.: K7QM)" autocomplete="off" style="text-transform:uppercase">
@@ -733,7 +739,7 @@ function renderRooms(){ const box=$('roomList'); if(!box)return; box.textContent
   $('roomCount').textContent=ROOMS.length?'('+ROOMS.length+')':'';
   if(!ROOMS.length){ const e=document.createElement('div'); e.className='roomempty'; e.textContent='Nenhuma sala aberta agora. Crie uma e chame os amigos!'; box.append(e); return; }
   for(const r of ROOMS){ const full=r.players>=r.max, canPlay=!r.playing&&!full;
-    const c=document.createElement('div'); c.className='rcard'+(r.playing?' busy':full?' full':'');
+    const c=document.createElement('div'); c.className='rcard'+(r.arena?' arena':r.playing?' busy':full?' full':'');
     const faces=document.createElement('div'); faces.className='rfaces';
     r.chars.slice(0,4).forEach(ch=>{ const cv=document.createElement('canvas'); cv.width=60; cv.height=60; faces.append(cv); try{ const off=document.createElement('canvas'); off.width=off.height=144; drawPortrait(off,ch,[]); cv.getContext('2d').drawImage(off,26,14,92,92,0,0,60,60); }catch(_){} });
     const info=document.createElement('div'); info.className='rinfo';
@@ -741,13 +747,19 @@ function renderRooms(){ const box=$('roomList'); if(!box)return; box.textContent
     const code=document.createElement('b'); code.textContent=r.code;
 
     const tag=document.createElement('i'); tag.className='rtag '+(r.playing?'live':'wait'); tag.style.fontStyle='normal';
-    tag.textContent=r.playing?'Em partida':full?'Cheia':'Esperando';
+    tag.textContent=r.arena?'● AO VIVO':r.playing?'Em partida':full?'Cheia':'Esperando';
+    if(r.arena) code.textContent='Arena dos bots';
     top.append(code,tag);
     const sub=document.createElement('div'); sub.className='rsub';
     const hb=document.createElement('b'); hb.textContent=r.host; sub.append(hb,' · ');
-    sub.append(`${r.players}/${r.max} jogadores`+(r.bots?` · ${r.bots} bot${r.bots>1?'s':''} ${DIFF_LBL[r.diff]||''}`:'')+` · ${STAGE_LBL[r.stage]||'Sorteio'} · ${r.target} vitórias`+(r.specs?` · ${r.specs} assistindo`:''));
+    if(r.arena) sub.textContent=`4 bots no difícil · ${STAGE_LBL[r.stage]||'Sorteio'}`+(r.specs?` · ${r.specs} assistindo`:' · assista e aprenda');
+    else sub.append(`${r.players}/${r.max} jogadores`+(r.bots?` · ${r.bots} bot${r.bots>1?'s':''} ${DIFF_LBL[r.diff]||''}`:'')+` · ${STAGE_LBL[r.stage]||'Sorteio'} · ${r.target} vitórias`+(r.specs?` · ${r.specs} assistindo`:''));
     sub.title=r.names.join(', ');
     info.append(top,sub);
+    if(r.arena){ const bw=document.createElement('div'); bw.className='rbtns';
+      const w=document.createElement('button'); w.type='button'; w.className='ghost'; w.textContent='👁 Assistir'; w.onclick=()=>{ $('codeIn').value=r.code; join('spectator'); };
+      const q=document.createElement('button'); q.type='button'; q.className='go'; q.textContent='Jogar'; q.onclick=quickPlay;
+      bw.append(w,q); c.append(faces,info,bw); box.append(c); continue; }
     const b=document.createElement('button'); b.type='button'; b.className=canPlay?'go':'ghost'; b.textContent=canPlay?'Entrar':'Assistir';
     b.onclick=()=>{ $('codeIn').value=r.code; join(canPlay?'player':'spectator'); };
     c.append(faces,info,b); box.append(c); } }
@@ -979,6 +991,8 @@ function entered(r){ me=r.you; SPECTATOR=!!r.spectator; document.body.classList.
 function join(as){ audio(); const code=$('codeIn').value.trim().toUpperCase(); $('homeErr').textContent='';
   if(code.length!==4){$('homeErr').textContent='O código tem 4 letras ou números.';return;}
   socket.emit('join',{code,as},r=>{ if(r.ok)entered(r); else $('homeErr').textContent=r.error; }); }
+function quickPlay(){ audio(); $('homeErr').textContent=''; socket.emit('quickPlay',{},r=>{ if(r.ok)entered(r); else $('homeErr').textContent=r.error; }); }
+$('quickBtn').onclick=quickPlay;
 $('joinBtn').onclick=()=>join('player');
 $('watchBtn').onclick=()=>join('spectator');
 $('codeIn').addEventListener('keydown',e=>{ if(e.key==='Enter')join('player'); });

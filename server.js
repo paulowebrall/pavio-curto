@@ -449,13 +449,16 @@ const sendLobby = r => { io.to(r.code).emit('lobby', lobbyState(r)); roomsChange
 // lista de salas abertas (sem as de torneio): vai para todo mundo na tela inicial, no máximo a cada 400 ms
 function listRooms() {
   const out = [];
+  if (ARENA.room && ARENA.room.game) { const r = ARENA.room, ps = r.game.snapshot().players;
+    out.push({ code: r.code, arena: true, host: 'Arena ao vivo', players: 0, max: MAX_PLAYERS, bots: ps.length, diff: 'dificil', stage: r.game.snapshot().stage,
+      target: 3, playing: true, specs: r.specs.length, names: ps.map(p => p.name), chars: ps.map(p => p.char) }); }
   for (const r of rooms.values()) {
-    if (r.tournament || !r.members.length) continue;
+    if (r.tournament || r.arena || !r.members.length) continue;
     const host = r.members.find(m => m.sid === r.hostSid) || r.members[0];
     out.push({ code: r.code, host: host.name, players: r.members.length, max: MAX_PLAYERS, bots: r.bots, diff: r.diff, stage: r.stage,
       target: r.target, playing: !!r.game, specs: r.specs.length, names: r.members.map(m => m.name), chars: r.members.map(m => m.char) });
   }
-  return out.sort((a, b) => (a.playing - b.playing) || (b.players - a.players)).slice(0, 30);
+  return out.sort((a, b) => (b.arena ? 1 : 0) - (a.arena ? 1 : 0) || (a.playing - b.playing) || (b.players - a.players)).slice(0, 30);
 }
 let roomsTimer = null;
 function roomsChanged() { if (roomsTimer) return; roomsTimer = setTimeout(() => { roomsTimer = null; io.emit('rooms', listRooms()); }, 400); }
@@ -516,6 +519,25 @@ function startGame(r) {
   }, TICK);
   sendLobby(r);
 }
+
+/* ---------- Arena ao vivo: bots (com "(bot)" no nome) jogando sem parar, para quem chega ter algo para assistir ---------- */
+// Só calcula e envia o estado quando tem alguém assistindo. Quem quer jogar vai para uma sala própria contra bots ("Jogar agora").
+const ARENA = { room: null, pause: null };
+function startArena() {
+  let r = ARENA.room;
+  if (!r) { r = { code: newCode(), arena: true, hostSid: null, members: [], specs: [], chat: [], bots: 4, diff: 'dificil', target: 3, stage: 'sorteio', petBoxes: 2, tournament: null, game: null, loop: null };
+    rooms.set(r.code, r); ARENA.room = r; }
+  r.game = createGame({ humans: [], bots: 4, diff: 'dificil', target: 3, stage: 'sorteio', seed: (Math.random() * 2 ** 31) | 0, petBoxes: 2 });
+  io.to(r.code).emit('started'); roomsChanged();
+  let n = 0;
+  r.loop = setInterval(() => {
+    const g = r.game; if (!g) return;
+    g.update(STEP);
+    if (r.specs.length && (++n % SEND_EVERY === 0 || g.state === 'over')) io.to(r.code).volatile.emit('state', g.snapshot());
+    if (g.state === 'over') { clearInterval(r.loop); r.loop = null; ARENA.pause = setTimeout(startArena, 4000); }   // 4 s de vitória e começa outra
+  }, TICK);
+}
+startArena();
 
 /* ---------- replays: arquivos em data/replays ---------- */
 const MAX_REPLAYS = 3, REPLAY_DIR = path.join(__dirname, 'data', 'replays');
@@ -587,7 +609,14 @@ function busyElsewhere(socket) {
 const busyMsg = r => r.game
   ? `Você já está jogando uma partida na sala ${r.code} (em outra aba ou aparelho). Termine ou saia dela antes de entrar em outra.`
   : `Você já está na sala ${r.code} (em outra aba ou aparelho). Saia dela antes de criar ou entrar em outra.`;
-const roomAck = (socket, r) => ({ ok: true, code: r.code, you: socket.id, spectator: !!socket.data.spectator, playing: !!r.game });
+function quickPlay(socket, ack) {
+  const busy = busyElsewhere(socket); if (busy) return ack && ack({ ok: false, error: busyMsg(busy) });
+  leaveRoom(socket);
+  const r = newRoom(socket, { bots: 3, diff: 'normal', stage: 'sorteio' });
+  startGame(r);
+  ack && ack(roomAck(socket, r));
+}
+const roomAck = (socket, r) => ({ ok: true, code: r.code, you: socket.id, spectator: !!socket.data.spectator, playing: !!r.game || !!r.arena });
 const newRoom = (socket, extra) => {
   const r = Object.assign({ code: newCode(), hostSid: socket.id, members: [], specs: [], chat: [], bots: 1, diff: 'normal', target: 3, stage: 'padrao', petBoxes: 1, tournament: null, game: null, loop: null }, extra);
   rooms.set(r.code, r); joinMember(socket, r); return r;
@@ -608,6 +637,8 @@ io.on('connection', socket => {
   socket.emit('tournaments', listTournaments());
   socket.emit('rooms', listRooms());
 
+  // Jogar agora: sala própria com 3 bots, a partida já começa
+  socket.on('quickPlay', (_, ack) => quickPlay(socket, ack));
   socket.on('create', (_, ack) => {
     const busy = busyElsewhere(socket); if (busy) return ack && ack({ ok: false, error: busyMsg(busy) });
     leaveRoom(socket);
@@ -626,6 +657,7 @@ io.on('connection', socket => {
       ack && ack(roomAck(socket, r)); return sendLobby(r);
     }
     const busy = busyElsewhere(socket); if (busy) return ack && ack({ ok: false, error: busyMsg(busy) });
+    if (r.arena) return quickPlay(socket, ack);   // quer jogar na arena: vai para uma sala própria contra bots
     if (r.game) return ack && ack({ ok: false, error: 'Essa sala já está no meio de uma partida. Você pode entrar para assistir.' });
     if (r.members.length >= MAX_PLAYERS) return ack && ack({ ok: false, error: 'A sala está cheia (4 jogadores).' });
     const tm = matchOfRoom(r);
