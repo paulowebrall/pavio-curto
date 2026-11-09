@@ -75,7 +75,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--fuse);outline-o
 .rcard.arena .rtag{color:#fff;background:var(--hot);border-color:var(--hot)}
 .rbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 #quickBtn small{display:block;font:600 11px var(--body);opacity:.8;letter-spacing:0}
-.go.alt{background:var(--panel);color:var(--ink);border-color:var(--fuse);box-shadow:0 4px 0 var(--line)}
+.go.alt{background:var(--fuse);color:#2a1606;box-shadow:0 5px 0 #b06f12}
+.go.alt:active{box-shadow:0 2px 0 #b06f12}
 .rcard button{flex-shrink:0;padding:6px 10px;font-size:13px}
 .roomempty{font-size:13px;color:var(--muted);padding:6px 2px}
 .or::before,.or::after{content:"";flex:1;height:2px;background:var(--line)}
@@ -118,6 +119,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--fuse);outline-o
 canvas{display:block;width:100%;height:100%}
 .skipbtn{position:absolute;left:50%;bottom:12%;transform:translateX(-50%);z-index:4;width:auto;padding:10px 18px;font-size:15px;box-shadow:0 4px 0 #a3301c,0 10px 30px rgba(0,0,0,.5)}
 .skipbtn[hidden]{display:none}
+.skipbtn:active{transform:translateX(-50%) translateY(3px)}   /* afunda sem sair do centro */
 .help{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;color:var(--muted);font-size:13px}
 kbd{font:500 12px var(--body);background:var(--panel);border:1px solid var(--line);border-bottom-width:3px;border-radius:5px;padding:1px 6px;color:var(--ink)}
 html{touch-action:manipulation}   /* sem zoom de toque duplo */
@@ -358,7 +360,7 @@ select{font:500 15px var(--body);background:var(--bg);color:var(--ink);border:2p
 @keyframes endPulse{50%{transform:scale(1.05)}}
 @media (prefers-reduced-motion:reduce){.endcard,.pcard,.endtitle,.pcard .gain.go2,.pcard .pts.bump{animation:none;opacity:1;transform:none}}
 .toast{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:8px 14px;z-index:30}
-@media (prefers-reduced-motion:reduce){.wait::before{animation:none}.go:active{transform:none}}
+@media (prefers-reduced-motion:reduce){.wait::before{animation:none}.go:active{transform:none}.skipbtn:active{transform:translateX(-50%)}}
 </style>
 <!-- monitoramento do Rota de Venda desligado: o script clonava a página inteira e lia todo o texto dela, o que pesa durante o jogo
 <script src="https://rotadevenda.com.br/track.js" data-store-id="MS9KXHVX" async></script> -->
