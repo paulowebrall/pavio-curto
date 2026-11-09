@@ -910,6 +910,15 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
     get seed() { return seed; },
     get ticks() { return ticks; },
     humansLeft() { return G.players.some(p => p.human); },
+    humansAlive() { return G.players.some(p => p.human && p.alive); },
+    // só bots vivos: roda o resto da rodada de uma vez (mesmos passos de sempre, então o replay fica igual).
+    // Para quando a rodada termina; os efeitos do caminho (explosões etc.) são descartados para não chegarem todos juntos.
+    skipRound(maxSteps) {
+      if (G.state !== 'play' || G.players.some(p => p.human && p.alive)) return 0;
+      let n = 0; const lim = maxSteps || 60 * 240;
+      while (G.state === 'play' && n < lim) { update(1 / 60); n++; }
+      G.ev = []; return n;
+    },
     _G: process.env.PAVIO_DEBUG_PETS || process.env.PAVIO_TEST ? G : undefined
   };
 }

@@ -116,6 +116,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--fuse);outline-o
 .icon-btn{background:var(--panel);border:2px solid var(--line);color:var(--ink);border-radius:8px;padding:4px 10px;font:500 13px var(--body);cursor:pointer}
 .stage{position:relative;width:100%;aspect-ratio:15/13;border-radius:12px;overflow:hidden;box-shadow:0 0 0 3px var(--line),0 18px 40px rgba(0,0,0,.45)}
 canvas{display:block;width:100%;height:100%}
+.skipbtn{position:absolute;left:50%;bottom:12%;transform:translateX(-50%);z-index:4;width:auto;padding:10px 18px;font-size:15px;box-shadow:0 4px 0 #a3301c,0 10px 30px rgba(0,0,0,.5)}
+.skipbtn[hidden]{display:none}
 .help{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;color:var(--muted);font-size:13px}
 kbd{font:500 12px var(--body);background:var(--panel);border:1px solid var(--line);border-bottom-width:3px;border-radius:5px;padding:1px 6px;color:var(--ink)}
 html{touch-action:manipulation}   /* sem zoom de toque duplo */
@@ -565,7 +567,8 @@ select{font:500 15px var(--body);background:var(--bg);color:var(--ink);border:2p
       <button class="icon-btn" id="playLeave" type="button">Sair</button>
     </div>
   </div>
-  <div class="stage"><canvas id="game" aria-label="Arena da batalha"></canvas></div>
+  <div class="stage"><canvas id="game" aria-label="Arena da batalha"></canvas>
+    <button type="button" class="go skipbtn" id="skipBtn" hidden>⏩ Pular para o resultado</button></div>
   <div class="emotes" id="emoteBar" hidden>
     <span class="sub">Figurinhas:</span>
     <button type="button" data-k="zangado"><kbd>1</kbd> Zangado</button>
@@ -991,6 +994,7 @@ function entered(r){ me=r.you; SPECTATOR=!!r.spectator; document.body.classList.
 function join(as){ audio(); const code=$('codeIn').value.trim().toUpperCase(); $('homeErr').textContent='';
   if(code.length!==4){$('homeErr').textContent='O código tem 4 letras ou números.';return;}
   socket.emit('join',{code,as},r=>{ if(r.ok)entered(r); else $('homeErr').textContent=r.error; }); }
+$('skipBtn').onclick=e=>{ e.currentTarget.hidden=true; socket.emit('skipRound',{},r=>{ if(r&&r.error)toast(r.error); }); };
 function quickPlay(){ audio(); $('homeErr').textContent=''; socket.emit('quickPlay',{},r=>{ if(r.ok)entered(r); else $('homeErr').textContent=r.error; }); }
 $('quickBtn').onclick=quickPlay;
 $('joinBtn').onclick=()=>join('player');
@@ -1547,6 +1551,9 @@ socket.on('state',sn=>{
     if(e[0]!=='round')sfx(e[0]);
   }
   S.ready=true; renderHud();
+  // você caiu e só sobraram bots: oferece pular direto para o resultado da rodada
+  const mine=S.players.find(p=>p.sid===me);
+  $('skipBtn').hidden=!(sn.s==='play'&&!SPECTATOR&&!REPLAY&&mine&&!mine.alive&&!S.players.some(p=>p.human&&p.alive)&&S.players.filter(p=>p.alive).length>1);
 });
 
 /* ---------- HUD ---------- */

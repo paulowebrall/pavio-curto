@@ -637,6 +637,15 @@ io.on('connection', socket => {
   socket.emit('tournaments', listTournaments());
   socket.emit('rooms', listRooms());
 
+  // Pular para o resultado: todos os jogadores de verdade já caíram e só sobraram bots
+  socket.on('skipRound', (_, ack) => {
+    const r = rooms.get(socket.data.room);
+    if (!r || !r.game || r.arena || !r.members.some(m => m.sid === socket.id)) return ack && ack({ ok: false });
+    if (r.game.humansAlive()) return ack && ack({ ok: false, error: 'Ainda tem jogador vivo na partida.' });
+    const n = r.game.skipRound();
+    if (n) sysMsg(r, 'Rodada adiantada: só tinha bots vivos');
+    ack && ack({ ok: !!n });
+  });
   // Jogar agora: sala própria com 3 bots, a partida já começa
   socket.on('quickPlay', (_, ack) => quickPlay(socket, ack));
   socket.on('create', (_, ack) => {
