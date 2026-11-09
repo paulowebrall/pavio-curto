@@ -562,8 +562,26 @@ function chatPush(r, msg) {
 }
 const sysMsg = (r, text) => chatPush(r, { sys: true, text });
 
+/* ---------- chat de voz (WebRTC): o áudio vai direto entre os aparelhos; o servidor só apresenta um ao outro ---------- */
+const VOICE_MAX = 6;
+const nickOfSock = s => (db.users[s.data.uid] || {}).nick || '?';
+function voicePeers(socket) {
+  const out = [];
+  for (const id of io.sockets.adapter.rooms.get(socket.data.room) || []) {
+    const s = io.sockets.sockets.get(id);
+    if (s && s !== socket && s.data.voice) out.push({ sid: id, name: nickOfSock(s), muted: !!s.data.vmuted });
+  }
+  return out;
+}
+function voiceOff(socket, code) {
+  if (!socket.data.voice) return;
+  socket.data.voice = false; socket.data.vmuted = false;
+  socket.to(code || socket.data.room).emit('voice:left', { sid: socket.id });
+}
+
 function leaveRoom(socket) {
   const code = socket.data.room; if (!code) return;
+  voiceOff(socket, code);
   socket.data.room = null; socket.data.spectator = false; socket.leave(code);
   const r = rooms.get(code); if (!r) return;
   const spec = r.specs.find(s => s.sid === socket.id);
@@ -645,6 +663,29 @@ io.on('connection', socket => {
     const n = r.game.skipRound();
     if (n) sysMsg(r, 'Rodada adiantada: só tinha bots vivos');
     ack && ack({ ok: !!n });
+  });
+  // voz: entrar, sair, mutar e repassar a negociação da conexão (só entre quem está na voz da mesma sala)
+  socket.on('voice:join', (_, ack) => {
+    const r = rooms.get(socket.data.room);
+    if (!r) return ack && ack({ ok: false, error: 'Entre numa sala para usar a voz.' });
+    if (r.arena) return ack && ack({ ok: false, error: 'A Arena ao vivo não tem voz. Crie uma sala ou jogue com os amigos.' });
+    if (socket.data.voice) return ack && ack({ ok: true, peers: voicePeers(socket) });
+    const peers = voicePeers(socket);
+    if (peers.length >= VOICE_MAX) return ack && ack({ ok: false, error: `A voz desta sala está cheia (${VOICE_MAX} pessoas).` });
+    socket.data.voice = true; socket.data.vmuted = false;
+    socket.to(r.code).emit('voice:joined', { sid: socket.id, name: nickOfSock(socket), muted: false });
+    ack && ack({ ok: true, peers });
+  });
+  socket.on('voice:leave', () => voiceOff(socket));
+  socket.on('voice:mute', ({ muted } = {}) => {
+    if (!socket.data.voice) return;
+    socket.data.vmuted = !!muted; socket.to(socket.data.room).emit('voice:mute', { sid: socket.id, muted: !!muted });
+  });
+  socket.on('voice:signal', ({ to, data } = {}) => {
+    const t = typeof to === 'string' && io.sockets.sockets.get(to);
+    if (!t || !socket.data.voice || !t.data.voice || t.data.room !== socket.data.room) return;
+    if (!data || JSON.stringify(data).length > 20000) return;   // oferta/resposta/candidato: mensagem pequena
+    t.emit('voice:signal', { from: socket.id, data });
   });
   // Jogar agora: sala própria com 3 bots, a partida já começa
   socket.on('quickPlay', (_, ack) => quickPlay(socket, ack));

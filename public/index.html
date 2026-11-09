@@ -192,7 +192,8 @@ html{touch-action:manipulation}   /* sem zoom de toque duplo */
     display:grid;place-items:center}
   .playwrap.isfs .icon-btn::before{font-size:17px;line-height:1}
   .playwrap.isfs #muteBtn::before{content:'🔊'} .playwrap.isfs #muteBtn.off::before{content:'🔇'}
-  .playwrap.isfs #musicBtn::before{content:'🎵'} .playwrap.isfs #musicBtn.off{opacity:.45}
+  .playwrap.isfs #musicBtn::before{content:'🎵'}
+  .playwrap.isfs #vHudBtn::before{content:'🎙️'} .playwrap.isfs #vHudBtn.off{opacity:.55} .playwrap.isfs #vHudBtn.mute::before{content:'🔇'} .playwrap.isfs #musicBtn.off{opacity:.45}
   .playwrap.isfs #fsBtn::before{content:'⤡'} .playwrap.isfs #playLeave::before{content:'🚪'}
   .playwrap.isfs #repPause,.playwrap.isfs #repSpeed{width:auto;border-radius:8px;padding:0 10px;font-size:13px}
   .playwrap.isfs #repPause::before,.playwrap.isfs #repSpeed::before{content:none}
@@ -265,6 +266,20 @@ textarea:focus{outline:none;border-color:var(--fuse)}
 .champ .prize{font-family:var(--display);font-size:20px;color:var(--ok)}
 .drawbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;border:1px dashed var(--line);border-radius:10px;padding:8px 10px}
 @media (prefers-reduced-motion:reduce){.chip2.spin{animation:none}}
+.voice{display:grid;gap:6px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.vrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.vctl{display:flex;gap:6px;flex-wrap:wrap}
+.vctl[hidden]{display:none}
+#vJoin[hidden]{display:none}
+.vctl .ghost.on{border-color:var(--hot);color:var(--hot)}
+.vlist{display:flex;gap:6px;flex-wrap:wrap}
+.vp{display:inline-flex;align-items:center;gap:5px;font-size:12px;background:var(--bg);border:2px solid var(--line);border-radius:999px;padding:2px 9px 2px 4px;cursor:pointer;color:var(--ink)}
+.vp i{width:10px;height:10px;border-radius:50%;background:var(--line);font-style:normal}
+.vp.talk{border-color:var(--ok)} .vp.talk i{background:var(--ok);box-shadow:0 0 0 3px rgba(47,210,140,.3)}
+.vp.wait{opacity:.6}
+.vp .m{font-size:11px}
+#vHudBtn.on{border-color:var(--ok);color:var(--ok)}
+#vHudBtn.mute{border-color:var(--hot);color:var(--hot)}
 .chat-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
 .chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:80px;-webkit-user-select:text;user-select:text}
 .msg{font-size:13px;line-height:1.4;overflow-wrap:anywhere}
@@ -563,6 +578,7 @@ select{font:500 15px var(--body);background:var(--bg);color:var(--ink);border:2p
         <button class="icon-btn" id="repSpeed" type="button">1x</button>
       </span>
       <div class="timer" id="timer">2:00</div>
+      <button class="icon-btn off" id="vHudBtn" type="button" title="Chat de voz">🎙️ Voz</button>
       <button class="icon-btn" id="muteBtn" type="button">Som: on</button>
       <button class="icon-btn" id="musicBtn" type="button">Música: on</button>
       <button class="icon-btn" id="fsBtn" type="button" title="Tela cheia (F)">⛶ Tela cheia</button>
@@ -599,6 +615,17 @@ select{font:500 15px var(--body);background:var(--bg);color:var(--ink);border:2p
 
 <!-- Chat da sala (é movido para o lado da sala de espera ou do jogo) -->
 <div class="chat" id="chat" hidden>
+  <div class="voice" id="voiceBox">
+    <div class="vrow">
+      <button class="go sm" id="vJoin" type="button">🎙️ Entrar na voz</button>
+      <span class="vctl" id="vCtl" hidden>
+        <button class="ghost sm" id="vMic" type="button">🎙️ Microfone ligado</button>
+        <button class="ghost sm" id="vDeaf" type="button">🔊 Ouvindo</button>
+        <button class="ghost sm" id="vLeave" type="button">Sair da voz</button>
+      </span>
+    </div>
+    <div class="vlist" id="vList"></div>
+  </div>
   <div class="chat-h"><b>Chat da sala</b><span class="sub">1 mensagem a cada 15 s</span></div>
   <div class="chat-pin" id="chatPin" hidden></div>
   <div class="chat-log" id="chatLog" aria-live="polite"></div>
@@ -980,6 +1007,7 @@ async function loadMyDonations(){
 
 /* ---------- telas ---------- */
 function show(id){ if(id!=='play'&&fsOn())setFs(false);   // saiu do jogo: sai da tela cheia
+  if(id!=='play'&&id!=='lobby'&&typeof voiceLeave==='function')voiceLeave();   // saiu da sala: sai da voz
   for(const s of ['login','nickScreen','home','lobby','play']) $(s).hidden=s!==id;
   if(id==='lobby')$('chatSlotLobby').append($('chat')); else if(id==='play')$('chatSlotPlay').append($('chat'));
   $('chat').hidden=REPLAY||!(id==='lobby'||id==='play');
@@ -1014,6 +1042,69 @@ function chatLine(m){
   return d;
 }
 function chatAdd(m){ const log=$('chatLog'), stick=log.scrollTop+log.clientHeight>=log.scrollHeight-30; log.append(chatLine(m)); while(log.children.length>60)log.firstChild.remove(); if(stick)log.scrollTop=log.scrollHeight; }
+/* ---------- chat de voz (WebRTC, direto entre os aparelhos) ---------- */
+const VOICE={on:false,stream:null,peers:{},muted:false,deaf:false,ctx:null,meters:[],timer:null,joining:false};
+const ICE=[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}];
+function voiceMeter(key,stream){ try{ if(!VOICE.ctx)VOICE.ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const src=VOICE.ctx.createMediaStreamSource(stream), an=VOICE.ctx.createAnalyser(); an.fftSize=512; src.connect(an);
+  VOICE.meters=VOICE.meters.filter(m=>m.key!==key); VOICE.meters.push({key,an,buf:new Uint8Array(an.fftSize),talk:false}); }catch(e){} }
+function voiceTick(){ let ch=false; for(const m of VOICE.meters){ m.an.getByteTimeDomainData(m.buf); let s=0; for(const v of m.buf){ const d=v-128; s+=d*d; }
+    const talk=Math.sqrt(s/m.buf.length)>6; if(talk!==m.talk){ m.talk=talk; ch=true; } } if(ch)voiceUi(); }
+function voicePeer(sid,name,muted){
+  const pc=new RTCPeerConnection({iceServers:ICE}), audio=new Audio(); audio.autoplay=true; audio.setAttribute('playsinline','');
+  const peer={pc,name,muted,localMute:false,audio,pend:[],state:'new'}; VOICE.peers[sid]=peer;
+  VOICE.stream.getTracks().forEach(t=>pc.addTrack(t,VOICE.stream));
+  pc.onicecandidate=e=>{ if(e.candidate)socket.emit('voice:signal',{to:sid,data:{c:e.candidate}}); };
+  pc.ontrack=e=>{ audio.srcObject=e.streams[0]; audio.muted=VOICE.deaf||peer.localMute; audio.play().catch(()=>{}); voiceMeter(sid,e.streams[0]); };
+  pc.onconnectionstatechange=()=>{ peer.state=pc.connectionState; if(pc.connectionState==='failed')toast('A voz com '+name+' não conectou (rede bloqueando)'); voiceUi(); };
+  return peer; }
+function voiceClosePeer(sid){ const p=VOICE.peers[sid]; if(!p)return; try{p.pc.close();}catch(e){} p.audio.srcObject=null; delete VOICE.peers[sid]; VOICE.meters=VOICE.meters.filter(m=>m.key!==sid); voiceUi(); }
+function voiceTeardown(){ for(const sid in VOICE.peers)voiceClosePeer(sid); if(VOICE.stream)VOICE.stream.getTracks().forEach(t=>t.stop());
+  VOICE.stream=null; VOICE.on=false; VOICE.muted=false; VOICE.meters=[]; clearInterval(VOICE.timer); VOICE.timer=null; voiceUi(); }
+async function voiceJoin(){
+  if(VOICE.on||VOICE.joining)return; VOICE.joining=true;
+  try{ VOICE.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}); }
+  catch(e){ VOICE.joining=false; toast(e&&e.name==='NotAllowedError'?'Permita o microfone no navegador para usar a voz':'Não achei um microfone neste aparelho'); return; }
+  socket.emit('voice:join',{},r=>{ VOICE.joining=false;
+    if(!r||!r.ok){ toast((r&&r.error)||'Não deu para entrar na voz'); VOICE.stream.getTracks().forEach(t=>t.stop()); VOICE.stream=null; return; }
+    VOICE.on=true; voiceMeter('me',VOICE.stream); VOICE.timer=setInterval(voiceTick,150);
+    for(const p of r.peers){ const peer=voicePeer(p.sid,p.name,p.muted);   // quem entra chama quem já estava
+      peer.pc.createOffer().then(o=>peer.pc.setLocalDescription(o)).then(()=>socket.emit('voice:signal',{to:p.sid,data:{sdp:peer.pc.localDescription}})).catch(()=>{}); }
+    voiceUi(); });
+}
+function voiceLeave(){ if(!VOICE.on)return; socket.emit('voice:leave'); voiceTeardown(); }
+function voiceSetMute(m){ VOICE.muted=m; if(VOICE.stream)VOICE.stream.getAudioTracks().forEach(t=>t.enabled=!m); socket.emit('voice:mute',{muted:m}); voiceUi(); }
+function voiceSetDeaf(d){ VOICE.deaf=d; for(const sid in VOICE.peers){ const p=VOICE.peers[sid]; p.audio.muted=d||p.localMute; } voiceUi(); }
+socket.on('voice:joined',p=>{ if(VOICE.on&&!VOICE.peers[p.sid]){ voicePeer(p.sid,p.name,p.muted); voiceUi(); } });
+socket.on('voice:left',({sid})=>voiceClosePeer(sid));
+socket.on('voice:mute',({sid,muted})=>{ const p=VOICE.peers[sid]; if(p){ p.muted=muted; voiceUi(); } });
+socket.on('voice:signal',async({from,data})=>{ const peer=VOICE.on&&VOICE.peers[from]; if(!peer||!data)return; const pc=peer.pc;
+  try{ if(data.sdp){ await pc.setRemoteDescription(data.sdp);
+      if(data.sdp.type==='offer'){ const a=await pc.createAnswer(); await pc.setLocalDescription(a); socket.emit('voice:signal',{to:from,data:{sdp:pc.localDescription}}); }
+      for(const c of peer.pend.splice(0)) await pc.addIceCandidate(c); }
+    else if(data.c){ if(pc.remoteDescription) await pc.addIceCandidate(data.c); else peer.pend.push(data.c); } }catch(e){} });
+socket.on('disconnect',()=>{ if(VOICE.on)voiceTeardown(); });
+function voiceUi(){
+  $('vJoin').hidden=VOICE.on; $('vCtl').hidden=!VOICE.on;
+  $('vMic').textContent=VOICE.muted?'🔇 Microfone mudo':'🎙️ Microfone ligado'; $('vMic').classList.toggle('on',VOICE.muted);
+  $('vDeaf').textContent=VOICE.deaf?'🔈 Som da voz mudo':'🔊 Ouvindo'; $('vDeaf').classList.toggle('on',VOICE.deaf);
+  const hb=$('vHudBtn'); hb.classList.toggle('off',!VOICE.on); hb.classList.toggle('on',VOICE.on&&!VOICE.muted); hb.classList.toggle('mute',VOICE.on&&VOICE.muted);
+  hb.textContent=!VOICE.on?'🎙️ Voz':VOICE.muted?'🔇 Mudo':'🎙️ Falando'; hb.title=!VOICE.on?'Entrar no chat de voz':VOICE.muted?'Ligar o microfone':'Mutar o microfone';
+  const talk=k=>{ const m=VOICE.meters.find(x=>x.key===k); return m&&m.talk; };
+  let html='';
+  if(VOICE.on) html+='<span class="vp'+(talk('me')&&!VOICE.muted?' talk':'')+'"><i></i>'+esc((ME&&ME.nick)||'Você')+' (você)'+(VOICE.muted?'<span class="m">🔇</span>':'')+'</span>';
+  for(const sid in VOICE.peers){ const p=VOICE.peers[sid], ok=p.state==='connected';
+    html+='<button type="button" class="vp'+(ok?'':' wait')+(talk(sid)&&!p.muted?' talk':'')+'" data-vp="'+sid+'" title="'+(p.localMute?'Toque para ouvir de novo':'Toque para silenciar só para você')+'"><i></i>'+esc(p.name)+(p.muted?'<span class="m">🔇</span>':'')+(p.localMute?'<span class="m">🙉</span>':'')+(ok?'':'<span class="m">…</span>')+'</button>'; }
+  if(!VOICE.on) html='<span class="sub">Fale com quem está na sala, na espera e durante a partida. Ninguém escuta você sem você entrar.</span>';
+  $('vList').innerHTML=html; }
+$('vJoin').onclick=voiceJoin;
+$('vLeave').onclick=voiceLeave;
+$('vMic').onclick=()=>voiceSetMute(!VOICE.muted);
+$('vDeaf').onclick=()=>voiceSetDeaf(!VOICE.deaf);
+$('vHudBtn').onclick=e=>{ e.currentTarget.blur(); if(!VOICE.on)voiceJoin(); else voiceSetMute(!VOICE.muted); };
+$('vList').addEventListener('click',e=>{ const b=e.target.closest('[data-vp]'); if(!b)return; const p=VOICE.peers[b.dataset.vp]; if(!p)return;
+  p.localMute=!p.localMute; p.audio.muted=VOICE.deaf||p.localMute; voiceUi(); });
+voiceUi();
 socket.on('chatHistory',list=>{ $('chatLog').innerHTML=''; (list||[]).forEach(chatAdd); $('chatLog').scrollTop=1e9; });
 socket.on('chat',chatAdd);
 let chatTimer=null;
