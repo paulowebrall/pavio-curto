@@ -902,9 +902,12 @@ function createGame({ humans, bots, diff, target, stage, seed, pets, stages, pet
     if (p.ai) { p.ai.next = null; p.ai.wait = 0; }
   }
 
+  // a mesma pessoa voltou com outra conexão (caiu e reconectou): o boneco passa para o novo id
+  function renameHuman(from, to) { const p = G.players.find(q => q.sid === from && q.human); if (p) p.sid = to; }
+
   newRound();
   return {
-    update, snapshot, setInput, dropHuman,
+    update, snapshot, setInput, dropHuman, renameHuman,
     get state() { return G.state; },
     get winner() { return G.winner; },
     get seed() { return seed; },

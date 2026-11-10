@@ -436,7 +436,7 @@ function lobbyState(r) {
   const t = r.tournament && db.tournaments[r.tournament], m = matchOfRoom(r);
   return {
     code: r.code, hostSid: r.hostSid, bots: r.bots, diff: r.diff, target: r.target, stage: r.stage, petBoxes: r.petBoxes,
-    members: r.members.map(m => ({ sid: m.sid, name: m.name, char: m.char, supporter: m.supporter, gear: m.gear || [] })),
+    members: r.members.map(m => ({ sid: m.sid, name: m.name, char: m.char, supporter: m.supporter, gear: m.gear || [], away: !!m.away })),
     specs: r.specs.map(s => ({ sid: s.sid, name: s.name, supporter: s.supporter })),
     playing: !!r.game,
     tournament: t ? { name: t.name, target: t.target, minPoints: t.minPoints, desc: t.desc || '',
@@ -604,10 +604,57 @@ function leaveRoom(socket) {
   if (r.hostSid === socket.id) r.hostSid = r.members[0].sid;
   clampBots(r); sendLobby(r);
 }
+// Reconexão: no celular a página congela quando a pessoa troca de app e a conexão cai.
+// Quem estava jogando numa sala fica com o lugar guardado por 60 s (na partida o boneco fica parado);
+// se voltar com a mesma conta nesse tempo, entra de novo no mesmo lugar sem fazer nada.
+const RESUME_MS = 60000;
+const cidOf = s => { const c = s.handshake.auth && s.handshake.auth.cid; return typeof c === 'string' && c.length <= 40 ? c : null; };
+function dropSocket(socket) {
+  stopReplay(socket);
+  const r = rooms.get(socket.data.room), m = r && !r.arena && r.members.find(x => x.sid === socket.id);
+  if (!m) return leaveRoom(socket);
+  voiceOff(socket, r.code);
+  if (r.game) {   // para de andar (e o replay também registra isso, para continuar igual)
+    r.game.setInput(socket.id, { dir: null });
+    if (r.rec && socket.id in r.rec.slot && r.rec.ev.length < 300000) r.rec.ev.push([r.game.ticks, r.rec.slot[socket.id], '', 0, 0, '']);
+  }
+  m.away = true; m.oldSock = socket;
+  m.awayTimer = setTimeout(() => {
+    m.away = false; m.awayTimer = null; m.oldSock = null;
+    if (m.sid === socket.id) leaveRoom(socket);
+  }, RESUME_MS);
+  sysMsg(r, m.name + ' caiu da conexão. Guardando o lugar por até 60 segundos…'); sendLobby(r);
+}
+function tryResume(socket) {
+  const cid = cidOf(socket);
+  for (const r of rooms.values()) {
+    if (r.arena) continue;
+    const m = r.members.find(x => x.uid === socket.data.uid && (x.away || (cid && x.cid === cid)));
+    if (!m) continue;
+    const oldSid = m.sid, old = m.oldSock || io.sockets.sockets.get(oldSid);
+    if (m.awayTimer) clearTimeout(m.awayTimer);
+    m.away = false; m.awayTimer = null; m.oldSock = null;
+    if (old) {   // a conexão antiga (se o servidor ainda não percebeu que caiu) sai sem tirar a pessoa da sala
+      if (old.data.voice) voiceOff(old, r.code);
+      old.data.room = null; old.leave(r.code);
+      if (old.connected) old.disconnect(true);
+    }
+    m.sid = socket.id; m.cid = cid;
+    if (r.hostSid === oldSid) r.hostSid = socket.id;
+    if (r.game) r.game.renameHuman(oldSid, socket.id);
+    if (r.rec && r.rec.slot && oldSid in r.rec.slot) { r.rec.slot[socket.id] = r.rec.slot[oldSid]; delete r.rec.slot[oldSid]; }
+    socket.join(r.code); socket.data.room = r.code; socket.data.spectator = false;
+    socket.emit('chatHistory', r.chat);
+    socket.emit('resumed', roomAck(socket, r));
+    sysMsg(r, m.name + ' voltou'); sendLobby(r);
+    return true;
+  }
+  return false;
+}
 function joinMember(socket, r) {
   const u = db.users[socket.data.uid];
   const taken = new Set(r.members.map(m => m.char));
-  r.members.push({ sid: socket.id, uid: u.uid, name: u.nick, char: [...Array(NCHARS).keys()].find(c => !taken.has(c)), supporter: !!u.supporter, gear: gearOn(u) });
+  r.members.push({ sid: socket.id, cid: cidOf(socket), uid: u.uid, name: u.nick, char: [...Array(NCHARS).keys()].find(c => !taken.has(c)), supporter: !!u.supporter, gear: gearOn(u) });
   socket.join(r.code); socket.data.room = r.code; socket.data.spectator = false;
   socket.emit('chatHistory', r.chat); sysMsg(r, u.nick + ' entrou para jogar');
 }
@@ -654,6 +701,7 @@ io.on('connection', socket => {
   socket.emit('build', BUILD);
   socket.emit('tournaments', listTournaments());
   socket.emit('rooms', listRooms());
+  tryResume(socket);
 
   // Pular para o resultado: todos os jogadores de verdade já caíram e só sobraram bots
   socket.on('skipRound', (_, ack) => {
@@ -866,7 +914,7 @@ io.on('connection', socket => {
   socket.on('replayStop', () => stopReplay(socket));
 
   socket.on('leave', () => leaveRoom(socket));
-  socket.on('disconnect', () => { leaveRoom(socket); stopReplay(socket); });
+  socket.on('disconnect', () => dropSocket(socket));
 });
 
 server.listen(PORT, () => {

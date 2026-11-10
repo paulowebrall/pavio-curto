@@ -688,7 +688,9 @@ let INVITE=null;
 { const q=new URLSearchParams(location.search);
   if(q.get('torneio')&&q.get('convite')){ INVITE={t:q.get('torneio'),ref:q.get('convite')}; try{sessionStorage.setItem('pc-invite',JSON.stringify(INVITE));}catch(_){} history.replaceState(null,'',location.pathname); }
   else { try{ INVITE=JSON.parse(sessionStorage.getItem('pc-invite')||'null'); }catch(_){} } }
-const socket=io({path:BASE+'socket.io',autoConnect:false,auth:cb=>cb({token:TOKEN})});
+// id desta aba: se a conexão cair (celular troca de app), o servidor reconhece a volta e devolve o lugar na sala
+let CID=null; try{ CID=sessionStorage.getItem('pc-cid'); if(!CID){ CID=Math.random().toString(36).slice(2,12)+Date.now().toString(36); sessionStorage.setItem('pc-cid',CID); } }catch(_){ CID=Math.random().toString(36).slice(2,12); }
+const socket=io({path:BASE+'socket.io',autoConnect:false,auth:cb=>cb({token:TOKEN,cid:CID})});
 let me=null, lobby=null;
 async function api(path,opts={}){
   const r=await fetch(BASE+path.replace(/^\//,''),{method:opts.body?'POST':(opts.method||'GET'),headers:Object.assign({'Content-Type':'application/json'},TOKEN?{Authorization:'Bearer '+TOKEN}:{}),body:opts.body?JSON.stringify(opts.body):undefined});
@@ -737,7 +739,7 @@ $('devEmail').addEventListener('keydown',e=>{ if(e.key==='Enter')$('devBtn').cli
 $('nickBtn').onclick=async()=>{ $('nickErr').textContent='';
   try{ afterLogin(await api('/api/nick',{body:{nick:$('nickIn').value}})); }catch(e){ $('nickErr').textContent=e.message; } };
 $('nickIn').addEventListener('keydown',e=>{ if(e.key==='Enter')$('nickBtn').click(); });
-async function logout(){ try{ await api('/api/logout',{body:{}}); }catch(e){} setToken(null); ME=null; lobby=null; socket.disconnect(); showLogin(); }
+async function logout(){ socket.emit('leave'); try{ await api('/api/logout',{body:{}}); }catch(e){} setToken(null); ME=null; lobby=null; socket.disconnect(); showLogin(); }
 $('logoutBtn').onclick=logout; $('nickLogout').onclick=logout;
 socket.on('connect_error',e=>{ if(e.message==='login'){ setToken(null); showLogin(); } else if(e.message==='nick') show('nickScreen'); });
 socket.on('me',u=>{ ME=u; renderMe(); });
@@ -1146,7 +1148,7 @@ socket.on('lobby',L=>{
   const taken=new Set(L.members.map(m=>m.char)), botChars=[0,1,2,3].filter(c=>!taken.has(c));
   for(let i=0;i<4;i++){
     const m=L.members[i], bi=i-L.members.length, isBot=!m&&bi<L.bots;
-    if(m) html+='<div class="slot"><span class="dot" style="--c:'+CHARS[m.char].color+'"></span><b>'+esc(m.name)+(m.sid===me?' (você)':'')+'</b>'+(m.supporter?'<span class="badge">★</span>':'')+'<span class="who">'+CHAR_NAMES[m.char]+'</span><span class="tag'+(m.sid===L.hostSid?' host':'')+'">'+(m.sid===L.hostSid?'anfitrião':'jogador')+'</span></div>';
+    if(m) html+='<div class="slot"><span class="dot" style="--c:'+CHARS[m.char].color+'"></span><b>'+esc(m.name)+(m.sid===me?' (você)':'')+'</b>'+(m.away?'<span class="who">📶 reconectando…</span>':'')+(m.supporter?'<span class="badge">★</span>':'')+'<span class="who">'+CHAR_NAMES[m.char]+'</span><span class="tag'+(m.sid===L.hostSid?' host':'')+'">'+(m.sid===L.hostSid?'anfitrião':'jogador')+'</span></div>';
     else if(isBot){ html+='<div class="slot"><span class="dot" style="--c:#6b6890"></span><span>🎲 Bot sorteado</span><span class="who">personagem sai na hora</span><span class="tag">bot</span></div>'; }
     else html+='<div class="slot empty"><span class="dot"></span><span>Vaga livre</span></div>';
   }
@@ -1213,7 +1215,14 @@ socket.on('build',b=>{ if(!MY_BUILD){ MY_BUILD=b; return; } if(b!==MY_BUILD){ NE
 function reloadIfIdle(){ if(!NEW_BUILD)return; const playing=document.getElementById('play')&&!document.getElementById('play').hidden&&!REPLAY;
   if(playing){ toast('Saiu uma versão nova do jogo: ela entra quando esta partida acabar'); return; }
   location.reload(); }
-socket.on('connect',()=>{ if(lobby){ lobby=null; me=null; show('home'); $('homeErr').textContent='Você foi desconectado. Entre na sala de novo.'; } });
+// reconectou: o servidor devolve o lugar na sala ('resumed'); se não vier, a sala já não existe para nós
+let RESUME_T=null;
+socket.on('connect',()=>{ clearTimeout(RESUME_T); if(lobby) RESUME_T=setTimeout(()=>{ if(!lobby)return; lobby=null; me=null; show('home'); $('homeErr').textContent='Você foi desconectado. Entre na sala de novo.'; },2500); });
+socket.on('resumed',r=>{ clearTimeout(RESUME_T); const was=!!lobby; entered(r); if(was) toast('Conexão de volta: você continua na sala'); });
+// voltou de outro app depois de um tempo: refaz a conexão na hora, sem esperar ela perceber sozinha que caiu
+let HID_AT=0;
+document.addEventListener('visibilitychange',()=>{ if(document.hidden){ HID_AT=Date.now(); return; }
+  if(HID_AT&&Date.now()-HID_AT>8000&&lobby&&!REPLAY&&socket.connected){ socket.disconnect(); socket.connect(); } HID_AT=0; });
 /* ---------- replays: gravar, listar, assistir, apagar, baixar vídeo ---------- */
 const fmtT=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
 const STAGE_LBL={padrao:'Padrão',fogo:'Fogo',agua:'Água',trem:'Trem',deserto:'Deserto',mata:'Mata',mar:'Fundo do Mar',ceu:'Céu',gelo:'Gelo'};
